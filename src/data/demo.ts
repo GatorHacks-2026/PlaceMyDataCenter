@@ -23,6 +23,8 @@
 
 export type CoolingType = 'Evaporative' | 'Hybrid' | 'Dry'
 
+export type DroughtRisk = 'Low' | 'Moderate' | 'High' | 'Unknown'
+
 export interface Location {
   id: string
   name: string
@@ -35,8 +37,17 @@ export interface Location {
    */
   gridFactorKgPerMWh: number
   /** PLACEHOLDER: qualitative drought risk label (kept separate from water calc). */
-  droughtRisk: 'Low' | 'Moderate' | 'High'
+  droughtRisk: DroughtRisk
+  /** Where this site came from: a built-in preset or a ZIP search (Phase 1B). */
+  source?: 'preset' | 'search'
 }
+
+/**
+ * DEMO default grid factor for searched (non-preset) locations. Real per-ZIP
+ * grid intensity arrives in Phase 3D; until then searched sites use this clearly
+ * labeled national-ish placeholder and an 'Unknown' drought label.
+ */
+export const DEFAULT_SEARCH_GRID_FACTOR = 400
 
 export const LOCATIONS: Location[] = [
   {
@@ -47,6 +58,7 @@ export const LOCATIONS: Location[] = [
     lat: 29.6516,
     gridFactorKgPerMWh: 380,
     droughtRisk: 'Low',
+    source: 'preset',
   },
   {
     id: 'phx',
@@ -56,6 +68,7 @@ export const LOCATIONS: Location[] = [
     lat: 33.4484,
     gridFactorKgPerMWh: 450,
     droughtRisk: 'High',
+    source: 'preset',
   },
   {
     id: 'sea',
@@ -65,6 +78,7 @@ export const LOCATIONS: Location[] = [
     lat: 47.6062,
     gridFactorKgPerMWh: 120,
     droughtRisk: 'Moderate',
+    source: 'preset',
   },
 ]
 

@@ -7,7 +7,58 @@ Last updated: 2026-10-23
 
 ---
 
-## Current status: Phase 1A COMPLETE ✅ (+ web-render fix, Phase 0 ✅ below)
+## Current status: Phase 1B COMPLETE ✅ (Phase 1A + web-render fix, Phase 0 ✅ below)
+
+### Phase 1B — ZIP / location search (2026-10-23)
+
+Users can now analyze any US location by ZIP code, not just the three presets.
+
+**Design decision (recorded):** we chose **Option B — a runtime geocoding API**
+over a bundled local dataset. This is the project's **first external network
+dependency**, deliberately crossing the earlier "no external APIs until Phase 3"
+boundary. Still frontend-only (no backend).
+
+- **Geocoder:** [Zippopotam.us](https://api.zippopotam.us/us/<zip>) — free,
+  key-less, CORS-enabled, US ZIP support. Community-run, no SLA (acceptable for a
+  demo; handled with full error states).
+- **`src/data/geocode.ts`** (new): `isValidUsZip()` and `geocodeUsZip(zip, signal)`.
+  Validates a 5-digit ZIP, fetches coordinates, and returns a `Location`
+  (`id: zip-<zip>`, `source: 'search'`). Distinct error types —
+  `ZipNotFoundError` (404 / no place) and `ZipLookupError` (network/parse/HTTP) —
+  so the UI shows useful messages. Supports `AbortSignal` to cancel in-flight
+  lookups. Never fabricates coordinates on failure.
+- **`src/data/demo.ts`:** `Location` gained `source?: 'preset' | 'search'`;
+  `DroughtRisk` now includes `'Unknown'`; added `DEFAULT_SEARCH_GRID_FACTOR` (400,
+  demo). Searched sites use that placeholder grid factor and `droughtRisk:
+  'Unknown'` until Phase 3 brings sourced per-location data.
+- **`ConfigPanel.tsx`:** ZIP search box (numeric, 5-digit), Search button with a
+  spinner, Enter-to-search, inline error text, a "Searched" badge on the selected
+  location, and an "approximate ZIP centroid" disclaimer.
+- **`App.tsx`:** keeps `searchedLocations` alongside presets, runs the lookup
+  (with abort + de-dupe), selects the new site, marks results stale, and passes
+  the combined list to the map.
+- **`MapPanel.tsx`:** takes a `locations` prop (presets + searched). A
+  marker-sync effect adds markers for sites that appear after init; selecting a
+  site eases the 3D map to it. The 2D fallback projects any lat/lng onto the SVG
+  (`projectToSvg`) so searched sites appear there too, and the drought color now
+  handles `'Unknown'`.
+
+**Behavior:** valid ZIP → new marker + selected site + map recenters, in both 3D
+and 2D views; presets still work; invalid/unknown ZIP and network errors show
+clear messages; water/electricity math is unaffected (location-independent),
+carbon uses the demo placeholder grid factor, drought shows "Unknown".
+
+**Verification** — `cmd /c "npm run build"` passes (BUILD_EXIT=0, 1580 modules,
+tsc clean; only the non-blocking MapLibre chunk-size warning). `cmd /c "npm test"`
+8/8 pass. Model tests unchanged and still green.
+
+**Limitations** — depends on a third-party service reachable from the browser
+(offline/blocked networks will error, by design). ZIP centroids are approximate.
+Searched sites carry demo grid/drought placeholders until Phase 3. Only US ZIPs.
+
+---
+
+## Phase 1A COMPLETE ✅ (+ web-render fix, Phase 0 ✅ below)
 
 ### Phase 1A fix — WebGL/map fallback so it renders on the web (2026-10-23)
 

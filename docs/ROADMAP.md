@@ -15,26 +15,31 @@
 - Stale-results indicator, adaptive units, assumption labels.
 - Error boundaries, WebGL fallback, automated tests (8/8).
 
-## Phase 1B — ZIP Code & Location Search ⬜ NEXT
+## Phase 1B — ZIP Code & Location Search ✅ COMPLETE (2026-10-23)
 **Goal:** Analyze user-selected locations anywhere in the United States.
 
-Scope:
-- Search by 5-digit US ZIP code.
-- Resolve ZIP to approximate coordinates using a public ZIP lookup service.
-- Select location from search results.
-- Update map marker, selected location, and configuration.
-- Preserve existing demo calculations and labels.
-- Support 2D fallback and MapLibre modes.
-- Handle invalid ZIPs, failed lookups, and loading states.
+Decision: resolved ZIPs via a **runtime geocoding API** (Zippopotam.us) —
+**Option B**, the project's first external network dependency. Still
+frontend-only. (Details in `PROGRESS.md`.)
 
-Acceptance:
-- Valid ZIP selects a location and moves the map.
-- Existing preset markers continue working.
-- Both map modes support selected locations.
-- Invalid ZIPs display useful errors.
-- Build and tests pass.
+Scope (all done):
+- [x] Search by 5-digit US ZIP code.
+- [x] Resolve ZIP to approximate coordinates via a public ZIP lookup service.
+- [x] Select the searched location.
+- [x] Update map marker, selected location, and configuration (marks stale).
+- [x] Preserve existing demo calculations and labels.
+- [x] Support both 2D fallback and MapLibre modes.
+- [x] Handle invalid ZIPs, failed lookups, and loading states.
 
-Out of scope: Live environmental data, backend, database, AI, geospatial watershed analysis.
+Acceptance (met):
+- [x] Valid ZIP selects a location and moves the map.
+- [x] Existing preset markers continue working.
+- [x] Both map modes support selected locations.
+- [x] Invalid ZIPs display useful errors.
+- [x] Build and tests pass (8/8).
+
+Out of scope (unchanged): Live environmental data, backend, database, AI,
+geospatial watershed analysis.
 
 ## Phase 2A — Backend Foundation ⬜
 **Goal:** Introduce a minimal API without changing the frontend experience.

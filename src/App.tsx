@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Leaf } from 'lucide-react'
 import MapPanel from './components/MapPanel'
 import ConfigPanel from './components/ConfigPanel'
@@ -11,12 +11,25 @@ import {
   type CoolingType,
   type Location,
 } from './data/demo'
+import {
+  geocodeUsZip,
+  ZipNotFoundError,
+  ZipLookupError,
+} from './data/geocode'
 
 export default function App() {
   const [location, setLocation] = useState<Location>(LOCATIONS[0])
+  // Preset sites plus any locations added via ZIP search (Phase 1B).
+  const [searchedLocations, setSearchedLocations] = useState<Location[]>([])
   const [capacity, setCapacity] = useState(100)
   const [utilization, setUtilization] = useState(0.85)
   const [cooling, setCooling] = useState<CoolingType>('Evaporative')
+
+  // ZIP search state
+  const [zipInput, setZipInput] = useState('')
+  const [zipSearching, setZipSearching] = useState(false)
+  const [zipError, setZipError] = useState<string | null>(null)
+  const zipAbortRef = useRef<AbortController | null>(null)
   // Initialize with initial calculation so the dashboard displays live estimates on load
   const [result, setResult] = useState<AnalysisResult | null>(() =>
     computeMetrics({
@@ -32,6 +45,38 @@ export default function App() {
 
   const markStale = () => {
     if (result) setStale(true)
+  }
+
+  const allLocations = [...LOCATIONS, ...searchedLocations]
+
+  const handleZipSearch = async () => {
+    // Cancel any in-flight lookup.
+    zipAbortRef.current?.abort()
+    const controller = new AbortController()
+    zipAbortRef.current = controller
+
+    setZipSearching(true)
+    setZipError(null)
+    try {
+      const loc = await geocodeUsZip(zipInput, controller.signal)
+      // De-dupe: reuse an existing searched entry with the same id.
+      setSearchedLocations((prev) =>
+        prev.some((l) => l.id === loc.id) ? prev : [...prev, loc],
+      )
+      setLocation(loc)
+      markStale()
+      setZipInput('')
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      if (e instanceof ZipNotFoundError || e instanceof ZipLookupError) {
+        setZipError(e.message)
+      } else {
+        setZipError('ZIP lookup failed. Please try again.')
+      }
+    } finally {
+      if (zipAbortRef.current === controller) zipAbortRef.current = null
+      setZipSearching(false)
+    }
   }
 
   const handleAnalyze = () => {
@@ -75,6 +120,7 @@ export default function App() {
               }
             >
               <MapPanel
+                locations={allLocations}
                 selectedId={location.id}
                 onSelect={(loc) => {
                   setLocation(loc)
@@ -91,6 +137,11 @@ export default function App() {
               cooling={cooling}
               stale={stale}
               error={error}
+              zipInput={zipInput}
+              zipSearching={zipSearching}
+              zipError={zipError}
+              onZipInputChange={setZipInput}
+              onZipSearch={handleZipSearch}
               onCapacityChange={(v) => {
                 setCapacity(v)
                 markStale()

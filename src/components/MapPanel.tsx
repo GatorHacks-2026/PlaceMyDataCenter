@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
 import { MapPin, Info, Layers, RefreshCw } from 'lucide-react'
-import { LOCATIONS, type Location } from '../data/demo'
+import { type Location } from '../data/demo'
 
 interface MapPanelProps {
+  locations: Location[]
   selectedId: string
   onSelect: (location: Location) => void
 }
@@ -47,12 +48,34 @@ const SVG_COORDS: Record<string, { x: number; y: number; region: string }> = {
   gnv: { x: 730, y: 445, region: 'Southeast' },
 }
 
-export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
+// Rough linear projection of continental-US lat/lng onto the 960x560 SVG, used
+// for ZIP-searched sites that have no hand-tuned coordinate. Clamped so
+// off-continent points stay on-canvas. Approximate by design (demo schematic).
+const US_BOUNDS = { minLng: -125, maxLng: -66.5, minLat: 24, maxLat: 49.5 }
+function projectToSvg(lat: number, lng: number): { x: number; y: number } {
+  const clamp = (v: number, lo: number, hi: number) =>
+    Math.max(lo, Math.min(hi, v))
+  const fx = (lng - US_BOUNDS.minLng) / (US_BOUNDS.maxLng - US_BOUNDS.minLng)
+  const fy = (US_BOUNDS.maxLat - lat) / (US_BOUNDS.maxLat - US_BOUNDS.minLat)
+  return {
+    x: clamp(110 + fx * (835 - 110), 40, 920),
+    y: clamp(85 + fy * (520 - 85), 40, 540),
+  }
+}
+
+export default function MapPanel({
+  locations,
+  selectedId,
+  onSelect,
+}: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const markersRef = useRef<Record<string, maplibregl.Marker>>({})
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
+  // Keep latest locations available to the one-time init effect.
+  const locationsRef = useRef(locations)
+  locationsRef.current = locations
 
   const [webglSupported] = useState<boolean>(() => isWebGLAvailable())
   const [useFallback, setUseFallback] = useState<boolean>(() => !isWebGLAvailable())
@@ -90,24 +113,8 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
       mapInstance.addControl(new maplibregl.NavigationControl(), 'top-right')
       mapRef.current = mapInstance
 
-      LOCATIONS.forEach((loc) => {
-        const el = document.createElement('button')
-        el.setAttribute('aria-label', `Select ${loc.name}, ${loc.state}`)
-        el.style.cssText =
-          'width:18px;height:18px;border-radius:9999px;border:2px solid #0a0f1c;cursor:pointer;'
-        el.dataset.id = loc.id
-
-        el.addEventListener('click', (e) => {
-          e.stopPropagation()
-          onSelectRef.current(loc)
-        })
-
-        const marker = new maplibregl.Marker({ element: el })
-          .setLngLat([loc.lng, loc.lat])
-          .addTo(mapInstance)
-
-        markersRef.current[loc.id] = marker
-      })
+      // Markers are created/synced by the dedicated effect below (so searched
+      // locations added after init also get markers).
     } catch (err) {
       console.warn('MapLibre GL initialization failed, switching to 2D fallback map:', err)
       const errorMsg = err instanceof Error ? err.message : String(err)
@@ -134,7 +141,32 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
     }
   }, [useFallback])
 
-  // Reflect selection by restyling MapLibre markers if rendered
+  // Sync MapLibre markers to the current locations list (adds markers for
+  // ZIP-searched sites that appear after init). Runs when the map exists.
+  useEffect(() => {
+    if (useFallback) return
+    const map = mapRef.current
+    if (!map) return
+
+    locations.forEach((loc) => {
+      if (markersRef.current[loc.id]) return
+      const el = document.createElement('button')
+      el.setAttribute('aria-label', `Select ${loc.name}, ${loc.state}`)
+      el.style.cssText =
+        'width:18px;height:18px;border-radius:9999px;border:2px solid #0a0f1c;cursor:pointer;'
+      el.dataset.id = loc.id
+      el.addEventListener('click', (e) => {
+        e.stopPropagation()
+        onSelectRef.current(loc)
+      })
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([loc.lng, loc.lat])
+        .addTo(map)
+      markersRef.current[loc.id] = marker
+    })
+  }, [locations, useFallback])
+
+  // Reflect selection by restyling MapLibre markers; fly to the selected site.
   useEffect(() => {
     if (useFallback) return
     Object.entries(markersRef.current).forEach(([id, marker]) => {
@@ -144,6 +176,10 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
       el.style.boxShadow = active ? '0 0 0 4px rgba(45,212,191,0.35)' : 'none'
       el.style.transform = active ? 'scale(1.25)' : 'scale(1)'
     })
+    const sel = locationsRef.current.find((l) => l.id === selectedId)
+    if (sel && mapRef.current) {
+      mapRef.current.easeTo({ center: [sel.lng, sel.lat], zoom: 5, duration: 800 })
+    }
   }, [selectedId, useFallback])
 
   // Fallback 2D Vector Map when WebGL is unavailable or user chooses 2D mode
@@ -239,8 +275,8 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
             </text>
 
             {/* Clickable site markers */}
-            {LOCATIONS.map((loc) => {
-              const pos = SVG_COORDS[loc.id] ?? { x: 480, y: 280, region: 'Site' }
+            {locations.map((loc) => {
+              const pos = SVG_COORDS[loc.id] ?? projectToSvg(loc.lat, loc.lng)
               const isSelected = loc.id === selectedId
 
               return (
@@ -319,8 +355,16 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
 
         {/* Direct site selector cards */}
         <div className="grid grid-cols-1 gap-2 pt-2 sm:grid-cols-3">
-          {LOCATIONS.map((loc) => {
+          {locations.map((loc) => {
             const isSelected = loc.id === selectedId
+            const droughtColor =
+              loc.droughtRisk === 'High'
+                ? 'text-amber-400'
+                : loc.droughtRisk === 'Moderate'
+                ? 'text-sky-300'
+                : loc.droughtRisk === 'Low'
+                ? 'text-emerald-400'
+                : 'text-slate-400'
             return (
               <button
                 key={loc.id}
@@ -345,16 +389,7 @@ export default function MapPanel({ selectedId, onSelect }: MapPanelProps) {
                 </div>
                 <div className="mt-1 flex items-center justify-between text-[10px] text-slate-400">
                   <span>Grid: {loc.gridFactorKgPerMWh} kg/MWh</span>
-                  <span
-                    className={[
-                      'font-medium',
-                      loc.droughtRisk === 'High'
-                        ? 'text-amber-400'
-                        : loc.droughtRisk === 'Moderate'
-                        ? 'text-sky-300'
-                        : 'text-emerald-400',
-                    ].join(' ')}
-                  >
+                  <span className={['font-medium', droughtColor].join(' ')}>
                     {loc.droughtRisk} Drought
                   </span>
                 </div>

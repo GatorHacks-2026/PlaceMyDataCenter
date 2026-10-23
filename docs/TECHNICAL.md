@@ -19,9 +19,11 @@ Last updated: 2026-10-23
 | Map          | MapLibre GL JS 4 (OSM raster tiles)     |
 | Icons        | lucide-react                            |
 
-Frontend-only through Phase 1A — no backend, database, AI, or external
-environmental APIs yet (intentional). A backend (FastAPI) is planned for Phase
-2A; see **Planned architecture** at the end of this file.
+Frontend-only (no backend/DB/AI). **As of Phase 1B there is one external network
+dependency:** the Zippopotam.us ZIP geocoding API, called from the browser in
+`src/data/geocode.ts`. No *environmental* data APIs yet — those arrive in Phase
+3. A backend (FastAPI) is planned for Phase 2A; see **Planned architecture** at
+the end of this file.
 
 ## Project layout
 
@@ -49,6 +51,7 @@ EcoDataCenter/
    │  └─ ErrorBoundary.tsx # fallback UI instead of blank screen
    └─ data/
       ├─ demo.ts           # types, LOCATIONS, COOLING_PRESETS, computeMetrics()
+      ├─ geocode.ts        # Phase 1B: US ZIP -> Location via Zippopotam.us (external API)
       └─ demo.test.ts      # deterministic model tests (node --test, excluded from build)
 ```
 
@@ -57,12 +60,20 @@ EcoDataCenter/
 All state lives in `App.tsx` and flows down via props (no state library needed):
 
 ```
-App  ── location, capacity, utilization, cooling, result, error, stale (useState)
- ├─ MapPanel      selectedId, onSelect(location)            → setLocation + markStale
- ├─ ConfigPanel   capacity/utilization/cooling, stale, error,
- │                onCapacityChange / onUtilizationChange / onCoolingChange / onAnalyze
+App  ── location, searchedLocations, capacity, utilization, cooling,
+        result, error, stale, zipInput, zipSearching, zipError (useState)
+ ├─ MapPanel      locations (presets + searched), selectedId, onSelect → setLocation + markStale
+ ├─ ConfigPanel   capacity/utilization/cooling, stale, error, zip* props,
+ │                onZipInputChange / onZipSearch / onCapacity|Utilization|CoolingChange / onAnalyze
  └─ MetricsPanel  result ({ metrics, assumptions } | null)
 ```
+
+- **ZIP search (Phase 1B):** `onZipSearch` → `geocodeUsZip(zip, signal)`
+  (`src/data/geocode.ts`). On success it appends to `searchedLocations`
+  (de-duped), selects the new site, and marks results stale. An `AbortController`
+  cancels any in-flight lookup. Errors surface as `zipError` in the config panel
+  (`ZipNotFoundError` / `ZipLookupError`). `MapPanel` receives presets + searched
+  as one `locations` array.
 
 - Changing marker / capacity / utilization / cooling updates state **and** sets
   `stale = true` (only if a result already exists).
@@ -118,9 +129,15 @@ The old temporary runtime overlay was removed.
   only owns the outer wrapper. Markers are plain `<button>` elements; `onSelect`
   is kept in a ref so the init effect can stay `[]`-deps.
 - **2D SVG fallback view (when WebGL is unavailable or the user toggles it).**
-  A stylized continental-US SVG (not a geographic projection) with clickable
-  site markers and per-site selector cards. Selecting a site uses the same
-  `onSelect(location)` contract as the 3D markers.
+  A stylized continental-US SVG with clickable site markers and per-site selector
+  cards. Preset sites use hand-tuned coordinates; searched (ZIP) sites are placed
+  via `projectToSvg(lat,lng)`, a rough linear projection of the US bounding box
+  (approximate by design). Selecting a site uses the same `onSelect(location)`
+  contract as the 3D markers.
+
+Markers are driven by the `locations` prop (presets + ZIP-searched). A
+marker-sync effect adds MapLibre markers for sites that appear after init, and
+selecting a site eases the 3D map to its coordinates.
 
 WebGL safety: `isWebGLAvailable()` probes `maplibregl.supported` (when present)
 plus a canvas WebGL context and never throws. MapLibre init is wrapped in
@@ -170,16 +187,12 @@ These are decisions recorded ahead of time so the next agent implements them
 consistently. **Do not build any of this without explicit approval for that
 phase.** Only `ROADMAP.md` defines scope/acceptance per phase.
 
-### Phase 1B — ZIP / location search (still frontend-only)
+### Phase 1B — ZIP / location search ✅ BUILT (2026-10-23)
 
-- **Open decision to lock before building:** how a ZIP resolves to coordinates.
-  - Option A (preferred, keeps Phase 1B offline/frontend-only): bundle a static
-    local ZIP→lat/lng dataset in `src/data/`.
-  - Option B: call one public geocoding service — this would be the project's
-    first external network dependency and should be noted as such.
-- New state in `App.tsx` for a user-entered/searched location; reuse the
-  existing `onSelect(location)` contract so both map views and the metric
-  pipeline work unchanged. Handle invalid ZIP, lookup failure, and loading.
+- Decision taken: **Option B** (runtime geocoding API, Zippopotam.us) — the
+  project's first external network dependency. Implemented in `src/data/geocode.ts`
+  and wired through `App.tsx` / `ConfigPanel.tsx` / `MapPanel.tsx`. See the
+  state-flow and MapPanel sections above and `PROGRESS.md` for details.
 
 ### Phase 2A — FastAPI backend (stack decision)
 
