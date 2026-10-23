@@ -1,0 +1,59 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    Helvetica, Arial, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background-color: #0a0f1c;
+  color: #e2e8f0;
+}
+
+/* Range slider styling */
+input[type='range'] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: #1e2a40;
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2dd4bf;
+  cursor: pointer;
+  border: 2px solid #0a0f1c;
+  box-shadow: 0 0 0 1px #2dd4bf;
+}
+
+input[type='range']::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 9999px;
+  background: #2dd4bf;
+  cursor: pointer;
+  border: 2px solid #0a0f1c;
+}
+
+/* Keep the MapLibre marker crisp on dark background */
+.maplibregl-popup-content {
+  background: #0f1626;
+  color: #e2e8f0;
+  border: 1px solid #1e2a40;
+}
