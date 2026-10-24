@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Leaf } from 'lucide-react'
 import MapPanel from './components/MapPanel'
 import ConfigPanel from './components/ConfigPanel'
+import InvestigationPanel from './components/InvestigationPanel'
 import MetricsPanel from './components/MetricsPanel'
 import ErrorBoundary from './components/ErrorBoundary'
 import {
@@ -159,6 +160,9 @@ export default function App() {
             </ErrorBoundary>
           </div>
           <div className="lg:col-span-2">
+            <div className="mb-6">
+              <InvestigationPanel />
+            </div>
             <ConfigPanel
               location={location}
               capacity={capacity}

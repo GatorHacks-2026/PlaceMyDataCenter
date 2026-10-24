@@ -8,6 +8,8 @@ from typing import Literal
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.investigation import router as investigation_router
+
 HOURS_PER_YEAR = 8760
 logger = logging.getLogger("uvicorn.error")
 COOLING_PRESETS = {
@@ -60,6 +62,7 @@ class EstimateResponse(BaseModel):
 
 
 app = FastAPI(title="EcoCompute API")
+app.include_router(investigation_router)
 
 
 @app.post("/api/estimate", response_model=EstimateResponse)
