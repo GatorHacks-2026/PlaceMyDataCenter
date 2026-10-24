@@ -4,19 +4,66 @@ import {
   requestInvestigationPreview,
   type InvestigationPreview,
 } from '../data/investigation'
+import { geocodeUsZip, isValidUsZip } from '../data/geocode'
+import type { Location } from '../data/demo'
 
 const SAMPLE_DOCUMENT = `Fictional demo document: A proposed data center may be built near Gainesville, Florida. This sample is for testing the interface only. It does not describe a real project or provide verified capacity, cooling, or water information.`
 
-export default function InvestigationPanel() {
-  const [location, setLocation] = useState('')
+interface InvestigationPanelProps {
+  location: string
+  onLocationChange: (value: string) => void
+  onZipResolved: (location: Location) => void
+}
+
+export default function InvestigationPanel({ location, onLocationChange, onZipResolved }: InvestigationPanelProps) {
   const [documentText, setDocumentText] = useState('')
   const [preview, setPreview] = useState<InvestigationPreview | null>(null)
   const [expanded, setExpanded] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const zipAbortRef = useRef<AbortController | null>(null)
+  const [zipSearching, setZipSearching] = useState(false)
+  const [zipMessage, setZipMessage] = useState<string | null>(null)
+  const [zipError, setZipError] = useState<string | null>(null)
 
-  useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => () => {
+    abortRef.current?.abort()
+    zipAbortRef.current?.abort()
+  }, [])
+
+  useEffect(() => {
+    invalidate()
+    zipAbortRef.current?.abort()
+    zipAbortRef.current = null
+    setZipSearching(false)
+    setZipMessage(null)
+    setZipError(null)
+  }, [location])
+
+  const locateZip = async () => {
+    if (!isValidUsZip(location) || zipSearching) return
+    const controller = new AbortController()
+    zipAbortRef.current = controller
+    setZipSearching(true)
+    setZipMessage(null)
+    setZipError(null)
+    try {
+      const resolved = await geocodeUsZip(location, controller.signal)
+      if (zipAbortRef.current !== controller) return
+      onZipResolved(resolved)
+      setZipMessage(`${resolved.name}, ${resolved.state} selected on the map (approximate ZIP center).`)
+    } catch (cause) {
+      if (zipAbortRef.current !== controller) return
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
+      setZipError(cause instanceof Error ? cause.message : 'ZIP lookup failed. Please try again.')
+    } finally {
+      if (zipAbortRef.current === controller) {
+        zipAbortRef.current = null
+        setZipSearching(false)
+      }
+    }
+  }
 
   const invalidate = () => {
     abortRef.current?.abort()
@@ -72,14 +119,33 @@ export default function InvestigationPanel() {
             type="text"
             maxLength={120}
             value={location}
-            onChange={(event) => { invalidate(); setLocation(event.target.value) }}
+            onChange={(event) => onLocationChange(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && isValidUsZip(location)) {
+                event.preventDefault()
+                void locateZip()
+              }
+            }}
             placeholder="ZIP, city and state, or state"
             aria-describedby="investigation-location-help"
             className="w-full rounded-lg border border-navy-600 bg-navy-700 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-accent focus:outline-none"
           />
           <p id="investigation-location-help" className="mt-1.5 text-[11px] text-slate-400">
-            Use the most precise place you know, for example 32601, Gainesville, FL, or Florida.
+            Use the most precise place you know, for example 32601, Gainesville, FL, or Florida. For a ZIP, locate it on the map without a document.
           </p>
+          {isValidUsZip(location) && (
+            <button
+              type="button"
+              onClick={() => void locateZip()}
+              disabled={zipSearching}
+              className="mt-2 flex items-center gap-2 rounded-lg border border-teal-accent/50 px-3 py-2 text-xs font-medium text-teal-accent hover:border-teal-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {zipSearching ? <Loader2 size={14} className="animate-spin" /> : <MapPin size={14} />}
+              {zipSearching ? 'Locating ZIP…' : 'Locate ZIP on map'}
+            </button>
+          )}
+          {zipMessage && <p role="status" className="mt-2 text-xs text-teal-accent">{zipMessage}</p>}
+          {zipError && <p role="alert" className="mt-2 text-xs text-red-300">{zipError}</p>}
         </div>
 
         <div>
@@ -114,7 +180,7 @@ export default function InvestigationPanel() {
           </button>
           <button
             type="button"
-            onClick={() => { invalidate(); setLocation('Gainesville, FL'); setDocumentText(SAMPLE_DOCUMENT) }}
+            onClick={() => { onLocationChange('Gainesville, FL'); setDocumentText(SAMPLE_DOCUMENT) }}
             className="rounded-lg border border-navy-600 px-3 py-2.5 text-xs font-medium text-slate-300 hover:border-slate-400"
           >
             Load fictional example

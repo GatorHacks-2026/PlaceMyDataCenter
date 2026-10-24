@@ -114,11 +114,12 @@ facts, and unavailable sections apart.
 
 ## Phase 3 — Link location to the map
 
-**Status: Not started.**
+**Status: Partial.** ZIP lookup from the proposed-location field works; the
+remaining map and backend tasks are open.
 
 **Frontend**
 
-- [ ] For ZIP input, resolve the approximate ZIP centroid and select it on
+- [x] For ZIP input, resolve the approximate ZIP centroid and select it on
   the existing map. Show a useful message if lookup fails.
 - [ ] For city/state input, move the map only after the backend returns a
   resolved geographic location; for state input, retain state-level labeling.

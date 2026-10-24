@@ -27,8 +27,9 @@ export default function App() {
   const [utilization, setUtilization] = useState(0.85)
   const [cooling, setCooling] = useState<CoolingType>('Evaporative')
 
-  // ZIP search state
-  const [zipInput, setZipInput] = useState('')
+  // The investigation location and simulator ZIP search share one query.
+  const [proposedLocation, setProposedLocation] = useState('')
+  const zipInput = /^\d{0,5}$/.test(proposedLocation) ? proposedLocation : ''
   const [zipSearching, setZipSearching] = useState(false)
   const [zipError, setZipError] = useState<string | null>(null)
   const zipAbortRef = useRef<AbortController | null>(null)
@@ -85,6 +86,23 @@ export default function App() {
 
   const allLocations = [...LOCATIONS, ...searchedLocations]
 
+  const changeProposedLocation = (value: string) => {
+    zipAbortRef.current?.abort()
+    zipAbortRef.current = null
+    setZipSearching(false)
+    setZipError(null)
+    setProposedLocation(value)
+  }
+
+  const selectZipLocation = (loc: Location) => {
+    setSearchedLocations((prev) =>
+      prev.some((entry) => entry.id === loc.id) ? prev : [...prev, loc],
+    )
+    setLocation(loc)
+    setProposedLocation(loc.id.slice(4))
+    markStale()
+  }
+
   const handleZipSearch = async () => {
     // Cancel any in-flight lookup.
     zipAbortRef.current?.abort()
@@ -95,14 +113,10 @@ export default function App() {
     setZipError(null)
     try {
       const loc = await geocodeUsZip(zipInput, controller.signal)
-      // De-dupe: reuse an existing searched entry with the same id.
-      setSearchedLocations((prev) =>
-        prev.some((l) => l.id === loc.id) ? prev : [...prev, loc],
-      )
-      setLocation(loc)
-      markStale()
-      setZipInput('')
+      if (zipAbortRef.current !== controller) return
+      selectZipLocation(loc)
     } catch (e) {
+      if (zipAbortRef.current !== controller) return
       if (e instanceof DOMException && e.name === 'AbortError') return
       if (e instanceof ZipNotFoundError || e instanceof ZipLookupError) {
         setZipError(e.message)
@@ -110,8 +124,10 @@ export default function App() {
         setZipError('ZIP lookup failed. Please try again.')
       }
     } finally {
-      if (zipAbortRef.current === controller) zipAbortRef.current = null
-      setZipSearching(false)
+      if (zipAbortRef.current === controller) {
+        zipAbortRef.current = null
+        setZipSearching(false)
+      }
     }
   }
 
@@ -154,6 +170,7 @@ export default function App() {
                 selectedId={location.id}
                 onSelect={(loc) => {
                   setLocation(loc)
+                  changeProposedLocation(loc.source === 'search' ? loc.id.slice(4) : `${loc.name}, ${loc.state}`)
                   markStale()
                 }}
               />
@@ -161,7 +178,11 @@ export default function App() {
           </div>
           <div className="lg:col-span-2">
             <div className="mb-6">
-              <InvestigationPanel />
+              <InvestigationPanel
+                location={proposedLocation}
+                onLocationChange={changeProposedLocation}
+                onZipResolved={selectZipLocation}
+              />
             </div>
             <ConfigPanel
               location={location}
@@ -174,7 +195,7 @@ export default function App() {
               zipInput={zipInput}
               zipSearching={zipSearching}
               zipError={zipError}
-              onZipInputChange={setZipInput}
+              onZipInputChange={changeProposedLocation}
               onZipSearch={handleZipSearch}
               onCapacityChange={(v) => {
                 setCapacity(v)

@@ -1,6 +1,6 @@
 # Web App Progress — Frontend and Backend
 
-**Status:** Phase 0 partial; Phase 1 partial; Phase 2 partial; Phases 3–6 not started.
+**Status:** Phases 0–3 partial; Phases 4–6 not started.
 
 **Branch:** `community-impact-pivot`
 
@@ -38,6 +38,30 @@ remaining tasks and "Done when" condition are verified.
   validation error. The existing large MapLibre bundle warning remains
   non-blocking.
 
+## 2026-10-24 — Proposed-location ZIP lookup fix
+
+- Confirmed that typing a ZIP into the investigation panel previously had no
+  visible effect because only the separate simulator ZIP search was connected
+  to the map, and investigation preview required document text.
+- Added a `Locate ZIP on map` action to the investigation panel, available
+  without a document. Enter also triggers it for a valid five-digit ZIP.
+  It uses the existing ZIP lookup, selects the approximate centroid on the
+  map, and shows loading, success, or error feedback.
+- Browser verification: `10001` selected New York City with coordinates
+  `40.7484, -73.9967`; `00000` showed a not-found error. Production build
+  passed. City/state map resolution is still open.
+
+## 2026-10-24 — Synchronized ZIP search fields
+
+- Proposed location and Search by US ZIP now share the same ZIP query. Typing
+  in either field updates the other; selecting a ZIP from either search updates
+  the selected-location heading and map marker.
+- Selecting a map marker updates Proposed location too. City/state text leaves
+  the ZIP-only search field empty until a ZIP is entered.
+- Browser verification: `10001` in Proposed location appeared in the lower ZIP
+  field and selected New York City; `98101` entered in the lower field appeared
+  above and selected Seattle. Frontend build and 8/8 tests passed.
+
 ## Still open
 
 - **Phase 0:** Review and improve the visual boundary between the existing
@@ -46,13 +70,15 @@ remaining tasks and "Done when" condition are verified.
   city/state coordinates later when a geographic provider is chosen.
 - **Phase 2:** Add sourced fact/unknown/conflict cards and a normalized
   extraction response after agreeing on the teammate contract.
-- **Phases 3–6:** No phase-level implementation yet. Map synchronization,
-  teammate integration, project-specific metrics, community questions, and
-  full team review remain open.
+- **Phase 3:** ZIP lookup is connected; city/state map resolution, location
+  correction, and backend geographic provenance remain open.
+- **Phases 4–6:** Teammate integration, project-specific metrics, community
+  questions, and full team review remain open.
 
 The first coding pass crossed Phase 0–2 task boundaries before the phase-by-
-phase review. No further feature phase should begin until the current phase is
-finished, recorded here, and reviewed.
+phase review. The ZIP map fix was made in response to a reported broken input.
+No further feature phase should begin until the current phase is finished,
+recorded here, and reviewed.
 
 ## Next task
 
