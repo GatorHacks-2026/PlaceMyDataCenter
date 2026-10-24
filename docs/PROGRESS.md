@@ -7,7 +7,21 @@ Last updated: 2026-10-23
 
 ---
 
-## Current status: Phase 1B COMPLETE ✅ (Phase 1A + web-render fix, Phase 0 ✅ below)
+## Current status: Phase 2A COMPLETE ✅ (earlier phases below)
+
+### Phase 2A — FastAPI backend foundation (2026-10-23)
+
+- Added a tracked `backend/` folder in the same Git repository. The React app remains at the repository root; no Git history was moved.
+- `POST /api/estimate` validates inputs with Pydantic and returns the same modeled metrics and assumptions as the prior TypeScript model. There is no database, authentication, or environmental API yet.
+- The frontend now requests estimates from FastAPI on initial load and on Analyze. It shows a loading state, a useful error, and a retry button. Changing configuration cancels an in-flight estimate so old results cannot replace the current selection.
+- Vite dev and preview proxy `/api` to `127.0.0.1:8000`. Production hosting must route `/api` to the backend.
+- The original TypeScript `computeMetrics` remains as a reference implementation and its eight tests still pass; the UI no longer calls it.
+- The API logs each estimate's timestamp, duration, validated request, and response in the backend terminal. `README.md` shows how to save these logs to the Git-ignored `backend/api.log` file.
+- Verification: TypeScript and Vite build pass, eight frontend tests pass, three backend API tests pass, and a browser check confirmed Dry cooling updates the cards through the backend. The existing MapLibre bundle-size warning remains non-blocking.
+
+Run the API and frontend using the commands in `README.md`.
+
+---
 
 ### Phase 1B — ZIP / location search (2026-10-23)
 

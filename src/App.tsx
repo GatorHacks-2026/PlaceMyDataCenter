@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Leaf } from 'lucide-react'
 import MapPanel from './components/MapPanel'
 import ConfigPanel from './components/ConfigPanel'
@@ -6,11 +6,12 @@ import MetricsPanel from './components/MetricsPanel'
 import ErrorBoundary from './components/ErrorBoundary'
 import {
   LOCATIONS,
-  computeMetrics,
+  type AnalysisInput,
   type AnalysisResult,
   type CoolingType,
   type Location,
 } from './data/demo'
+import { requestEstimate } from './data/estimate'
 import {
   geocodeUsZip,
   ZipNotFoundError,
@@ -30,22 +31,56 @@ export default function App() {
   const [zipSearching, setZipSearching] = useState(false)
   const [zipError, setZipError] = useState<string | null>(null)
   const zipAbortRef = useRef<AbortController | null>(null)
-  // Initialize with initial calculation so the dashboard displays live estimates on load
-  const [result, setResult] = useState<AnalysisResult | null>(() =>
-    computeMetrics({
-      location: LOCATIONS[0],
-      capacityMW: 100,
-      utilization: 0.85,
-      cooling: 'Evaporative',
-    }),
-  )
+  const [result, setResult] = useState<AnalysisResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [analyzing, setAnalyzing] = useState(false)
+  const analysisAbortRef = useRef<AbortController | null>(null)
   // True when the config changed since the last successful Analyze.
   const [stale, setStale] = useState(false)
 
   const markStale = () => {
-    if (result) setStale(true)
+    analysisAbortRef.current?.abort()
+    analysisAbortRef.current = null
+    setAnalyzing(false)
+    setError(null)
+    setStale(true)
   }
+
+  const runAnalysis = async (input: AnalysisInput) => {
+    analysisAbortRef.current?.abort()
+    const controller = new AbortController()
+    analysisAbortRef.current = controller
+    setAnalyzing(true)
+    setError(null)
+    try {
+      const estimate = await requestEstimate(input, controller.signal)
+      if (analysisAbortRef.current !== controller) return
+      setResult(estimate)
+      setStale(false)
+    } catch (cause) {
+      if (analysisAbortRef.current !== controller) return
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
+      setError(cause instanceof Error ? cause.message : 'Analysis failed. Please retry.')
+    } finally {
+      if (analysisAbortRef.current === controller) {
+        analysisAbortRef.current = null
+        setAnalyzing(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    void runAnalysis({
+      location: LOCATIONS[0],
+      capacityMW: 100,
+      utilization: 0.85,
+      cooling: 'Evaporative',
+    })
+    return () => {
+      analysisAbortRef.current?.abort()
+      analysisAbortRef.current = null
+    }
+  }, [])
 
   const allLocations = [...LOCATIONS, ...searchedLocations]
 
@@ -80,13 +115,7 @@ export default function App() {
   }
 
   const handleAnalyze = () => {
-    try {
-      setResult(computeMetrics({ location, capacityMW: capacity, utilization, cooling }))
-      setError(null)
-      setStale(false)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    }
+    void runAnalysis({ location, capacityMW: capacity, utilization, cooling })
   }
 
   return (
@@ -137,6 +166,7 @@ export default function App() {
               cooling={cooling}
               stale={stale}
               error={error}
+              analyzing={analyzing}
               zipInput={zipInput}
               zipSearching={zipSearching}
               zipError={zipError}

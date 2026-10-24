@@ -25,6 +25,7 @@ interface ConfigPanelProps {
   cooling: CoolingType
   stale: boolean
   error: string | null
+  analyzing: boolean
   // ZIP search (Phase 1B)
   zipInput: string
   zipSearching: boolean
@@ -44,6 +45,7 @@ export default function ConfigPanel({
   cooling,
   stale,
   error,
+  analyzing,
   zipInput,
   zipSearching,
   zipError,
@@ -236,10 +238,11 @@ export default function ConfigPanel({
       {/* Analyze button */}
       <button
         onClick={onAnalyze}
+        disabled={analyzing}
         className="flex items-center justify-center gap-2 rounded-lg bg-teal-accent px-4 py-3 text-sm font-semibold text-navy-900 transition-opacity hover:opacity-90"
       >
-        <Play size={16} />
-        Analyze
+        {analyzing ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+        {analyzing ? 'Analyzing…' : error ? 'Retry analysis' : 'Analyze'}
       </button>
     </div>
   )

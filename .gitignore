@@ -33,3 +33,9 @@ Thumbs.db
 *.local
 .vite/
 *.tsbuildinfo
+
+# Python backend
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]

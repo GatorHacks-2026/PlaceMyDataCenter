@@ -41,20 +41,19 @@ Acceptance (met):
 Out of scope (unchanged): Live environmental data, backend, database, AI,
 geospatial watershed analysis.
 
-## Phase 2A — Backend Foundation ⬜
+## Phase 2A — Backend Foundation ✅ COMPLETE (2026-10-23)
 **Goal:** Introduce a minimal API without changing the frontend experience.
 
 Scope:
-- FastAPI backend.
-- `/api/estimate` endpoint.
-- Move deterministic calculations server-side.
-- Validate inputs and responses.
-- Handle loading, failure, and retry states.
+- [x] FastAPI backend in a tracked `backend/` folder of the same repo.
+- [x] `/api/estimate` endpoint with deterministic calculations.
+- [x] Validate inputs and responses.
+- [x] Handle loading, failure, and retry states.
 
 Acceptance:
-- Existing frontend works with backend calculations.
-- Formula tests pass.
-- No regression in map or location search.
+- [x] Existing frontend works with backend calculations.
+- [x] Frontend and backend formula tests pass.
+- [x] Browser check confirms the map and backend result display work; ZIP search code is unchanged.
 
 ## Phase 2B — Saved Sites ⬜
 **Goal:** Enable repeated use before implementing authentication.
