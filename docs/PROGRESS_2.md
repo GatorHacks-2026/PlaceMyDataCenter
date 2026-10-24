@@ -4,7 +4,7 @@
 
 **Status:** Planning and contract alignment; no pivot features implemented yet.
 
-**Branch:** `codex/community-impact-pivot`
+**Branch:** `community-impact-pivot`
 
 This log records work toward the proposed community impact product in
 `ROADMAP_2.md`. The original implementation history remains in `PROGRESS.md`.

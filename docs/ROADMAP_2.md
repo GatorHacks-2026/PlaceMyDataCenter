@@ -2,7 +2,7 @@
 
 **Status:** Proposed direction; the full team has not adopted it yet.
 
-**Branch:** `codex/community-impact-pivot`
+**Branch:** `community-impact-pivot`
 
 **Started:** 2026-10-24
 
