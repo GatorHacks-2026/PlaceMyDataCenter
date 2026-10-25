@@ -13,7 +13,7 @@ npm test
 npm run build
 ```
 
-The Python suite passed **65 tests**. The frontend production build passed.
+The latest Python suite passed **75 tests**. The frontend production build passed.
 The pipeline tests use controlled search results and fetched documents rather
 than representing them as live research.
 
@@ -36,6 +36,18 @@ environment, the article hostname could not be resolved and
 reviewed sources, zero claims, and explicit access and configuration warnings.
 This is a correct failure report, not a successful live article evaluation.
 `GEMINI_API_KEY` was also absent, so model extraction quality was not measured.
+
+A later run with permitted network access fetched 6,634 characters of article
+text. The first live parse found the project but misattributed the article's
+generic 25 MW and 1,000 MW examples as competing Pine Island capacities. That
+was fixed by requiring local project context for data-center capacity claims,
+with regression tests. The corrected run identified Google's proposed Pine
+Island project and reported 780 MW data-center capacity, 1,400 MW wind, 200 MW
+solar, and 300 MW battery power from the one fetched CNBC article. It produced
+no capacity conflict. Coverage remained `partial`: no additional source was
+retrieved, Gemini 2.5 search was unavailable to the tested account, and model
+extraction fell back to deterministic rules. Water, cooling, tariff, generator,
+and infrastructure-payer fields remained unreported in the structured output.
 
 ## Gemini grounding trial with a temporary key
 

@@ -145,6 +145,36 @@ def identify_project(text: str | None, location_hint: Location) -> Identificatio
 
     candidates = sorted(found.values(), key=lambda item: item.match_score, reverse=True)
     matches = [item for item in candidates if item.match_score > 0]
+    if not matches and location_hint.city and location_hint.state:
+        # Some reports name the town beside "data center" but give the state
+        # elsewhere (e.g. "the Pine Island community"). Require both tokens.
+        state_name = next((name for name, code in STATE_NAMES.items()
+                           if code == location_hint.state), None)
+        state_tokens = [location_hint.state, *([state_name] if state_name else [])]
+        has_state = any(re.search(rf"\b{re.escape(token)}\b", text, re.I)
+                        for token in state_tokens)
+        if has_state:
+            city_pattern = re.compile(rf"\b{re.escape(location_hint.city)}\b", re.I)
+            fallback: dict[str, ProjectCandidate] = {}
+            for sentence in _sentences(text):
+                if not PROJECT_WORDS.search(sentence) or not city_pattern.search(sentence):
+                    continue
+                developer = _developer(sentence)
+                if not developer:
+                    leading = re.match(r"^([A-Z][A-Za-z0-9&.'-]{1,40})\s+hopes\b", sentence)
+                    developer = leading.group(1) if leading else None
+                project = ProjectIdentity(
+                    name=(f"{developer} {location_hint.city} data center" if developer
+                          else f"Data center near {location_hint.city}"),
+                    developer=developer,
+                    location=location_hint,
+                    phase=ProjectPhase.PROPOSED if re.search(r"\b(?:proposed|planned|plan)\b", sentence, re.I)
+                    else ProjectPhase.UNKNOWN,
+                )
+                fallback[developer or ""] = ProjectCandidate(
+                    project=project, evidence_excerpt=sentence[:500], match_score=80)
+            matches = list(fallback.values())
+            candidates.extend(matches)
     if len(matches) == 1:
         return IdentificationResult(
             status=IdentificationStatus.SELECTED,

@@ -11,7 +11,7 @@ import httpx
 from pydantic import ValidationError
 
 from .collection import CollectedSource
-from .facts import POWER, _power_classification
+from .facts import POWER, _local_project_context, _power_classification
 from .identity import identify_project
 from .models import CapacityKind, Claim, ClaimSubject, EvidenceRef, EvidenceStatus, ProjectIdentity, ProjectPhase
 
@@ -122,6 +122,9 @@ class GeminiFactExtractor:
                         continue
                     try:
                         subject = ClaimSubject(raw["subject"])
+                        if (raw.get("field") == "electricity.capacity_mw" and
+                                not _local_project_context(excerpt, project)):
+                            continue
                         if raw.get("measure") == "power_capacity":
                             stated = []
                             classifications = []

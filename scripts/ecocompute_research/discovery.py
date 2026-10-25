@@ -174,7 +174,7 @@ def discover_sources(
             hits = provider.search(query, count=hits_per_query)
         except SearchError as exc:
             warnings.append(f"{exc.code}: {exc}")
-            if exc.code == "not_configured":
+            if exc.code in {"not_configured", "model_unavailable", "quota_exhausted"}:
                 break
             continue
         for hit in hits:

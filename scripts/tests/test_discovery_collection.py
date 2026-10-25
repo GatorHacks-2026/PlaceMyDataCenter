@@ -49,6 +49,19 @@ def test_search_without_key_reports_partial_not_fake_hits():
     assert "not_configured" in result.warnings[0]
 
 
+def test_unavailable_model_stops_repeating_failed_queries():
+    class Unavailable:
+        calls = 0
+        def search(self, query, *, count):
+            self.calls += 1
+            raise SearchError("model_unavailable", "Model is unavailable")
+
+    provider = Unavailable()
+    result = discover_sources(PROJECT, provider)
+    assert provider.calls == 1
+    assert result.status == DiscoveryStatus.PARTIAL
+
+
 def test_discovery_deduplicates_urls_and_rejects_other_facility():
     class FakeProvider:
         def search(self, query, *, count):

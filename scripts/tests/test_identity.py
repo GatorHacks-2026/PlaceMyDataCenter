@@ -18,6 +18,26 @@ def test_cnbc_style_pine_island_seed_selects_exact_facility():
     assert result.selected.location.latitude is None
 
 
+def test_city_in_project_sentence_and_state_elsewhere_selects_project():
+    text = (
+        "Pine Island, Minnesota, is a small town. "
+        "Google hopes its new 780-megawatt data center plan will help the Pine Island community. "
+        "Data centers elsewhere face grid constraints."
+    )
+    result = identify_project(text, parse_location("Pine Island, MN"))
+    assert result.status == IdentificationStatus.SELECTED
+    assert result.selected.developer == "Google"
+    assert result.selected.name_is_reported is False
+
+
+def test_city_only_without_state_stays_unresolved():
+    result = identify_project(
+        "Google hopes its data center plan will help the Pine Island community.",
+        parse_location("Pine Island, MN"),
+    )
+    assert result.status == IdentificationStatus.NOT_FOUND
+
+
 def test_same_company_different_city_is_not_merged():
     text = (
         "Google announced a data center in Pine Island, MN. "

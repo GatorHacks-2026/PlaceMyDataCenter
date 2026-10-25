@@ -11,6 +11,7 @@ from .models import (
     CapacityKind, Claim, ClaimSubject, EvidenceRef, EvidenceStatus,
     ProjectIdentity, ProjectPhase,
 )
+from .location import STATE_NAMES
 
 
 NUMBER = r"\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?"
@@ -59,6 +60,20 @@ def _power_classification(sentence: str, match: re.Match[str]) -> tuple[str, Cla
     return None
 
 
+def _local_project_context(sentence: str, project: ProjectIdentity) -> bool:
+    city = project.location.city
+    if city and re.search(rf"\b{re.escape(city)}\b", sentence, re.I):
+        return True
+    state = project.location.state
+    state_name = next((name for name, code in STATE_NAMES.items() if code == state), None)
+    has_state = bool(state and any(
+        re.search(rf"\b{re.escape(token)}\b", sentence, re.I)
+        for token in (state, state_name) if token
+    ))
+    return bool(has_state and project.developer and
+                re.search(rf"\b{re.escape(project.developer)}\b", sentence, re.I))
+
+
 def extract_deterministic(source: CollectedSource, project: ProjectIdentity) -> list[Claim]:
     """Return only explicit, locally contextualized figures; absence is not zero."""
     whole_identity = identify_project(source.text, project.location)
@@ -78,6 +93,8 @@ def extract_deterministic(source: CollectedSource, project: ProjectIdentity) -> 
             if classification is None:
                 continue
             field, subject, kind = classification
+            if subject == ClaimSubject.DATA_CENTER and not _local_project_context(sentence, project):
+                continue
             value = float(match.group("number").replace(",", ""))
             if match.group("unit").casefold().startswith(("gw", "gigawatt")):
                 value *= 1000

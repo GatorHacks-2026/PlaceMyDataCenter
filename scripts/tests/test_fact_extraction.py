@@ -78,8 +78,8 @@ def test_gemini_output_must_quote_source_and_match_reported_number():
             "capacity_kind": None, "excerpt": excerpt,
         }
     payload = {"claims": [
-        raw_claim(780, "780-megawatt data center"),
-        raw_claim(900, "780-megawatt data center"),
+        raw_claim(780, "Google plans a 780-megawatt data center in Pine Island, MN."),
+        raw_claim(900, "Google plans a 780-megawatt data center in Pine Island, MN."),
         raw_claim(780, "fabricated 780-megawatt data center"),
         raw_claim(1400, "1,400 MW of wind"),
     ]}
@@ -95,6 +95,16 @@ def test_gemini_output_must_quote_source_and_match_reported_number():
     assert len(result.claims) == 1
     assert result.claims[0].value == 780
     assert result.claims[0].evidence[0].source_id == "four"
+
+
+def test_generic_capacity_examples_do_not_conflict_with_project_capacity():
+    item = source("general", (
+        "Google plans a 780-megawatt data center in Pine Island, Minnesota. "
+        "An analyst asked why companies build 25-megawatt data centers. "
+        "Why are they doing 1,000-megawatt data centers?"
+    ))
+    claims = extract_deterministic(item, PROJECT)
+    assert [claim.value for claim in claims if claim.field == "electricity.capacity_mw"] == [780]
 
 
 def test_gemini_failure_falls_back_without_inventing_missing_values():
