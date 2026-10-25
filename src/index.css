@@ -6,6 +6,21 @@
 :root {
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
     Helvetica, Arial, sans-serif;
+  --surface-base: 10 15 28;
+  --surface-card: 15 22 38;
+  --surface-raised: 22 32 51;
+  --surface-border: 30 42 64;
+  --accent: 45 212 191;
+  --ink: #e2e8f0;
+}
+
+:root.theme-light {
+  --surface-base: 245 242 235;
+  --surface-card: 255 253 248;
+  --surface-raised: 232 238 228;
+  --surface-border: 195 210 194;
+  --accent: 27 67 50;
+  --ink: #24392b;
 }
 
 html,
@@ -16,9 +31,56 @@ body,
 }
 
 body {
-  background-color: #0a0f1c;
-  color: #e2e8f0;
+  background-color: rgb(var(--surface-base));
+  color: var(--ink);
 }
+
+.earth-hero {
+  background: radial-gradient(circle at 12% 22%, rgb(var(--accent) / 0.1), transparent 28%),
+    linear-gradient(145deg, rgb(var(--surface-card)), rgb(var(--surface-raised)));
+}
+
+/* Existing panels keep their semantic roles when the warm light palette is active. */
+.theme-light .text-white,
+.theme-light .text-slate-100 { color: #1b4332; }
+.theme-light .text-slate-200,
+.theme-light .text-slate-300 { color: #344e41; }
+.theme-light .text-slate-400 { color: #52665a; }
+.theme-light .text-slate-500,
+.theme-light .placeholder\:text-slate-500::placeholder { color: #617367; }
+.theme-light .text-cyan-200,
+.theme-light .text-cyan-300,
+.theme-light .text-sky-200,
+.theme-light .text-sky-300,
+.theme-light .text-emerald-400 { color: #266b57; }
+.theme-light .text-purple-200 { color: #624672; }
+.theme-light .text-red-300,
+.theme-light .text-red-400 { color: #b34a3e; }
+.theme-light .text-rose-100,
+.theme-light .text-rose-200,
+.theme-light .text-rose-300,
+.theme-light .text-rose-400 { color: #a64224; }
+.theme-light .text-amber-100,
+.theme-light .text-amber-200,
+.theme-light .text-amber-300,
+.theme-light .text-amber-400,
+.theme-light .text-yellow-200,
+.theme-light .text-yellow-300 { color: #83501c; }
+.theme-light .text-navy-900 { color: #fffdf8; }
+.theme-light .hover\:text-white:hover { color: #1b4332; }
+.theme-light .hover\:text-teal-accent:hover { color: #1b4332; }
+.theme-light .border-rose-500\/25,
+.theme-light .border-rose-500\/30 { border-color: rgb(200 90 50 / 0.36); }
+.theme-light .bg-rose-500\/5,
+.theme-light .bg-rose-500\/10,
+.theme-light .bg-rose-500\/15,
+.theme-light .bg-rose-500\/20 { background-color: rgb(200 90 50 / 0.08); }
+.theme-light .bg-amber-500\/5,
+.theme-light .bg-amber-500\/10 { background-color: rgb(196 132 57 / 0.11); }
+.theme-light input,
+.theme-light textarea,
+.theme-light select { color-scheme: light; }
+.theme-light :focus-visible { outline-color: #1b4332; }
 
 /* Range slider styling */
 input[type='range'] {
@@ -26,7 +88,7 @@ input[type='range'] {
   appearance: none;
   height: 6px;
   border-radius: 9999px;
-  background: #1e2a40;
+  background: rgb(var(--surface-border));
   outline: none;
 }
 
@@ -36,24 +98,24 @@ input[type='range']::-webkit-slider-thumb {
   width: 18px;
   height: 18px;
   border-radius: 9999px;
-  background: #2dd4bf;
+  background: rgb(var(--accent));
   cursor: pointer;
-  border: 2px solid #0a0f1c;
-  box-shadow: 0 0 0 1px #2dd4bf;
+  border: 2px solid rgb(var(--surface-base));
+  box-shadow: 0 0 0 1px rgb(var(--accent));
 }
 
 input[type='range']::-moz-range-thumb {
   width: 18px;
   height: 18px;
   border-radius: 9999px;
-  background: #2dd4bf;
+  background: rgb(var(--accent));
   cursor: pointer;
   border: 2px solid #0a0f1c;
 }
 
 /* Keep the MapLibre marker crisp on dark background */
 .maplibregl-popup-content {
-  background: #0f1626;
-  color: #e2e8f0;
-  border: 1px solid #1e2a40;
+  background: rgb(var(--surface-card));
+  color: var(--ink);
+  border: 1px solid rgb(var(--surface-border));
 }

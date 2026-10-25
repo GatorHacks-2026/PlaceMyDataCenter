@@ -5,13 +5,13 @@ export default {
     extend: {
       colors: {
         navy: {
-          900: '#0a0f1c',
-          800: '#0f1626',
-          700: '#162033',
-          600: '#1e2a40',
+          900: 'rgb(var(--surface-base) / <alpha-value>)',
+          800: 'rgb(var(--surface-card) / <alpha-value>)',
+          700: 'rgb(var(--surface-raised) / <alpha-value>)',
+          600: 'rgb(var(--surface-border) / <alpha-value>)',
         },
         teal: {
-          accent: '#2dd4bf',
+          accent: 'rgb(var(--accent) / <alpha-value>)',
         },
       },
     },

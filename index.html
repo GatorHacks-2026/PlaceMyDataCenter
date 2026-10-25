@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>EcoCompute AI</title>
+    <script>
+      try {
+        if (localStorage.getItem('ecocompute-theme') !== 'dark') {
+          document.documentElement.classList.add('theme-light')
+          document.documentElement.style.colorScheme = 'light'
+        }
+      } catch {
+        document.documentElement.classList.add('theme-light')
+        document.documentElement.style.colorScheme = 'light'
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

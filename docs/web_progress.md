@@ -10,6 +10,20 @@ Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
 
+## 2026-10-25 — Warm light theme and guided entry
+
+- Added a light theme with linen surfaces, pine and sage accents, clay alerts,
+  and a persistent light/dark switch in the top header. Light is the default
+  for new visitors; the existing dark palette remains available.
+- Added a centered location question and a clear path into research before the
+  neighborhood map. The same ZIP, city, or state input still feeds the existing
+  research flow; screening and research behavior did not change.
+- Kept the research-area, home-distance, and ring-explanation cards beside the
+  satellite map. Moved the longer screening-data and facility-size cards below
+  the whole map row so they no longer leave a blank area under the map.
+- Verified the frontend production build and 15 frontend tests. Visual review
+  remains for a browser with screen access.
+
 ## 2026-10-25 — Screening-grounded Agentic Battle
 
 - Added live per-turn progress to the battle job and frontend. The existing

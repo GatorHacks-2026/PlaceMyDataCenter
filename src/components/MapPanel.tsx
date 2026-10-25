@@ -778,6 +778,9 @@ export default function MapPanel({
           </ul>
           <p className="mt-3 text-[11px] leading-relaxed text-slate-400">These fixed circles are proximity guides. Local water, power, noise, and air effects need separate evidence and models.</p>
         </div>
+      </aside>
+
+      <div className="space-y-3 lg:col-span-2" aria-label="Map screening details">
         {sitePoint && screeningResult?.map_overlays && <div className="rounded-xl border border-cyan-500/25 bg-navy-800 p-4">
           <h3 className="text-sm font-semibold text-white">Screening data on the map</h3>
           <p className="mt-2 text-xs text-cyan-200">Dashed cyan: {screeningResult.map_overlays.usgs_search_radius_miles} mile USGS gauge search area.</p>
@@ -803,7 +806,7 @@ export default function MapPanel({
             onChange={event => onCapacityChange(Number(event.target.value))} className="mt-4 w-full" />
           <p className="mt-2 text-[11px] leading-relaxed text-slate-400">This changes the site-screening IT capacity to a hypothetical value. Run screening again to update the modeled noise contour. The 1, 3, and 5 mile guides stay fixed.</p>
         </div>
-      </aside>
+      </div>
     </div>
   )
 }

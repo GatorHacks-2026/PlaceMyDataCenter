@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Leaf, MapPinned, Search, Swords } from 'lucide-react'
+import { FileText, Leaf, MapPinned, Moon, Search, Sun, Swords } from 'lucide-react'
 import MapPanel, { type ResearchArea } from './components/MapPanel'
 import ResearchPanel from './components/ResearchPanel'
 import AuditPanel from './components/AuditPanel'
@@ -15,6 +15,10 @@ import SiteScreeningPanel from './components/SiteScreeningPanel'
 import { uniqueItCapacityClaim, type SiteScreeningResult } from './data/siteScreening'
 
 export default function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try { return window.localStorage.getItem('ecocompute-theme') === 'dark' ? 'dark' : 'light' }
+    catch { return 'light' }
+  })
   const [activeView, setActiveView] = useState<'map' | 'audit' | 'battle'>('map')
   const [intakeOpen, setIntakeOpen] = useState(false)
   const [researchResult, setResearchResult] = useState<ResearchResult | null>(null)
@@ -39,6 +43,13 @@ export default function App() {
   const mapRequestRef = useRef(0)
 
   const allLocations = [...LOCATIONS, ...searchedLocations]
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('theme-light', theme === 'light')
+    document.documentElement.style.colorScheme = theme
+    try { window.localStorage.setItem('ecocompute-theme', theme) }
+    catch { /* Theme still works for this visit when storage is unavailable. */ }
+  }, [theme])
 
   useEffect(() => {
     let active = true
@@ -199,12 +210,27 @@ export default function App() {
             <div className="flex flex-wrap items-center gap-2"><h1 className="text-lg font-bold text-white">EcoCompute AI</h1><span className="rounded-full border border-teal-accent/30 bg-teal-accent/10 px-2 py-0.5 text-[10px] font-semibold text-teal-accent">Citizen data center auditor</span></div>
             <p className="text-xs text-slate-400">Explore a proposal, its evidence, and possible local impacts.</p>
           </div>
-          <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-            <label className="sr-only" htmlFor="header-location">Proposed location</label>
-            <input id="header-location" value={proposedLocation} onChange={event => changeProposedLocation(event.target.value)} placeholder="ZIP or City, ST" className="min-w-0 flex-1 rounded-lg border border-navy-600 bg-navy-900 px-3 py-2 text-sm text-white placeholder:text-slate-500 sm:w-44" />
-            <button type="button" onClick={() => intakeOpen ? setIntakeOpen(false) : openIntake()} aria-expanded={intakeOpen} aria-controls="research-intake" className="flex items-center gap-2 rounded-lg bg-teal-accent px-3 py-2 text-sm font-semibold text-navy-900"><Search size={15} />{intakeOpen ? 'Close input' : 'Add article / PDF'}</button>
-          </div>
+          <button type="button" onClick={() => setTheme(current => current === 'light' ? 'dark' : 'light')}
+            aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+            aria-pressed={theme === 'dark'}
+            className="flex items-center gap-2 rounded-full border border-navy-600 bg-navy-700 px-3 py-2 text-sm font-semibold text-white transition-colors hover:border-teal-accent/50">
+            {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}{theme === 'light' ? 'Dark mode' : 'Light mode'}
+          </button>
         </header>
+
+        {activeView === 'map' && <section className="earth-hero rounded-[2rem] border border-navy-600 px-5 py-10 text-center sm:px-10 sm:py-14" aria-labelledby="intro-question">
+          <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-teal-accent">Start with your community</p>
+          <h2 id="intro-question" className="mx-auto max-w-3xl text-3xl font-semibold leading-tight text-white sm:text-5xl">Where is the data center being proposed?</h2>
+          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-slate-300 sm:text-base">Enter a ZIP code, city, or state. Add an article or document to review the proposal, then explore the neighborhood on the map below.</p>
+          <div className="mx-auto mt-7 flex max-w-xl flex-col gap-3 sm:flex-row">
+            <label className="sr-only" htmlFor="header-location">Proposed location</label>
+            <input id="header-location" value={proposedLocation} onChange={event => changeProposedLocation(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') openIntake() }}
+              placeholder="ZIP code, city, or state" className="min-w-0 flex-1 rounded-xl border border-navy-600 bg-navy-800 px-4 py-3 text-sm text-white placeholder:text-slate-500" />
+            <button type="button" onClick={() => intakeOpen ? setIntakeOpen(false) : openIntake()} aria-expanded={intakeOpen} aria-controls="research-intake"
+              className="flex items-center justify-center gap-2 rounded-xl bg-teal-accent px-5 py-3 text-sm font-semibold text-navy-900"><Search size={17} />{intakeOpen ? 'Close input' : 'Explore proposal'}</button>
+          </div>
+          <p className="mt-4 text-xs text-slate-400">A location alone can begin a search. An article, PDF, or pasted text gives the research more context.</p>
+        </section>}
 
         <section aria-label="Research overview" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <div className="rounded-xl border border-navy-600 bg-navy-800 p-3.5"><p className="text-[11px] uppercase tracking-wide text-slate-400">Research location</p><p className="mt-1 truncate text-sm font-semibold text-white" title={placeName}>{placeName}</p><p className="mt-1 text-[11px] text-slate-500">{projectName || 'No project reviewed yet'}</p></div>
