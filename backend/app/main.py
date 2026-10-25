@@ -9,6 +9,7 @@ from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.investigation import router as investigation_router
+from app.research import router as research_router
 
 HOURS_PER_YEAR = 8760
 logger = logging.getLogger("uvicorn.error")
@@ -63,6 +64,7 @@ class EstimateResponse(BaseModel):
 
 app = FastAPI(title="EcoCompute API")
 app.include_router(investigation_router)
+app.include_router(research_router)
 
 
 @app.post("/api/estimate", response_model=EstimateResponse)

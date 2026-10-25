@@ -7,7 +7,7 @@ turn a reported facility capacity into an IT-power assumption.
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import StrEnum
+from enum import Enum
 from math import isfinite
 from typing import Annotated
 
@@ -35,7 +35,7 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", validate_assignment=True)
 
 
-class EvidenceStatus(StrEnum):
+class EvidenceStatus(str, Enum):
     REPORTED = "reported"
     VERIFIED = "verified"
     ESTIMATED = "estimated"
@@ -43,14 +43,14 @@ class EvidenceStatus(StrEnum):
     NOT_FOUND = "not_found"
 
 
-class ResearchStatus(StrEnum):
+class ResearchStatus(str, Enum):
     COMPLETE = "complete"
     PARTIAL = "partial"
     AMBIGUOUS = "ambiguous"
     FAILED = "failed"
 
 
-class SourceType(StrEnum):
+class SourceType(str, Enum):
     NEWS = "news"
     COMPANY = "company"
     UTILITY = "utility"
@@ -60,7 +60,7 @@ class SourceType(StrEnum):
     OTHER = "other"
 
 
-class LocationPrecision(StrEnum):
+class LocationPrecision(str, Enum):
     UNKNOWN = "unknown"
     STATE = "state"
     COUNTY = "county"
@@ -70,7 +70,7 @@ class LocationPrecision(StrEnum):
     PARCEL = "parcel"
 
 
-class ClaimSubject(StrEnum):
+class ClaimSubject(str, Enum):
     DATA_CENTER = "data_center"
     WIND_GENERATION = "wind_generation"
     SOLAR_GENERATION = "solar_generation"
@@ -84,14 +84,14 @@ class ClaimSubject(StrEnum):
     OTHER = "other"
 
 
-class CapacityKind(StrEnum):
+class CapacityKind(str, Enum):
     IT = "it"
     FACILITY = "facility"
     CONNECTION = "connection"
     UNKNOWN = "unknown"
 
 
-class ProjectPhase(StrEnum):
+class ProjectPhase(str, Enum):
     PROPOSED = "proposed"
     APPROVED = "approved"
     CONSTRUCTION = "construction"

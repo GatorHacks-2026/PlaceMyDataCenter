@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from enum import StrEnum
+from enum import Enum
 from hashlib import sha256
 import re
 import time
@@ -18,7 +18,7 @@ from .models import ProjectIdentity, SourceRecord, SourceType, StrictModel
 from .url_fetch import FetchError, FetchedDocument, fetch_url
 
 
-class CollectionStatus(StrEnum):
+class CollectionStatus(str, Enum):
     COMPLETE = "complete"
     PARTIAL = "partial"
 
@@ -87,6 +87,7 @@ def collect_sources(
     seen_text: set[str] = set()
     collected: list[CollectedSource] = []
     skipped: dict[str, str] = {}
+    access_failures = False
     attempts = 0
     for hit in hits:
         if len(collected) >= max_sources:
@@ -110,6 +111,7 @@ def collect_sources(
                     if exc.code == "request_failed" and attempt < retries:
                         continue
                     skipped[hit.url] = f"{exc.code}: {exc}"
+                    access_failures = True
                     break
         if document is None:
             continue
@@ -136,7 +138,7 @@ def collect_sources(
         collected.append(CollectedSource(source=source, text=document.text,
                                          relevance_reason=reason))
     return CollectionResult(
-        status=CollectionStatus.PARTIAL if skipped else CollectionStatus.COMPLETE,
+        status=CollectionStatus.PARTIAL if access_failures else CollectionStatus.COMPLETE,
         sources=collected,
         skipped=skipped,
     )

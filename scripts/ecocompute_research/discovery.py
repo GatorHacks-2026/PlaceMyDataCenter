@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 from datetime import date
-from enum import StrEnum
+from enum import Enum
 import os
+import re
 from typing import Protocol
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 import httpx
 from pydantic import Field
 
+from .location import STATE_NAMES
 from .models import ProjectIdentity, StrictModel
 
 
@@ -87,7 +89,7 @@ class BraveSearchProvider:
                 client.close()
 
 
-class DiscoveryStatus(StrEnum):
+class DiscoveryStatus(str, Enum):
     COMPLETE = "complete"
     PARTIAL = "partial"
 
@@ -132,13 +134,20 @@ def score_hit(hit: SearchHit, project: ProjectIdentity) -> int:
     location = project.location
     city = location.city.casefold() if location.city else None
     state = location.state.casefold() if location.state else None
+    state_name = next((name for name, code in STATE_NAMES.items()
+                       if code.casefold() == state), None)
     developer = project.developer.casefold() if project.developer else None
     aliases = [alias.casefold() for alias in project.aliases]
+    state_present = bool(state and (
+        re.search(rf"\b{re.escape(state)}\b", content) or
+        (state_name and re.search(rf"\b{re.escape(state_name)}\b", content))
+    ))
     if city and city not in content and not any(alias in content for alias in aliases):
         return 0
-    if state and state not in content and not city:
+    if state and not state_present and not city:
         return 0
     score = (4 if city and city in content else 0) + (2 if developer and developer in content else 0)
+    score += 2 if state_present else 0
     score += 3 if any(alias in content for alias in aliases) else 0
     score += 1 if "data center" in content or "datacenter" in content else 0
     return score
@@ -170,7 +179,7 @@ def discover_sources(
             continue
         for hit in hits:
             score = score_hit(hit, project)
-            if score < 4:
+            if score < (3 if not project.location.city else 4):
                 continue
             key = canonical_url(hit.url)
             ranked = hit.model_copy(update={"relevance_score": score})

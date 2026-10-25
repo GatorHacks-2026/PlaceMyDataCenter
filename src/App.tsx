@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Leaf } from 'lucide-react'
 import MapPanel from './components/MapPanel'
 import ConfigPanel from './components/ConfigPanel'
-import InvestigationPanel from './components/InvestigationPanel'
+import ResearchPanel from './components/ResearchPanel'
 import MetricsPanel from './components/MetricsPanel'
 import ErrorBoundary from './components/ErrorBoundary'
 import {
@@ -178,10 +178,9 @@ export default function App() {
           </div>
           <div className="lg:col-span-2">
             <div className="mb-6">
-              <InvestigationPanel
+              <ResearchPanel
                 location={proposedLocation}
                 onLocationChange={changeProposedLocation}
-                onZipResolved={selectZipLocation}
               />
             </div>
             <ConfigPanel

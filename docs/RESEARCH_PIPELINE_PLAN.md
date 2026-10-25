@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–3 and 6 implemented; points 4–5 code and offline checks implemented, live provider checks pending.
+**Status:** Points 1–7 implemented and checked offline; live Brave/Gemini research evaluation in point 8 remains pending.
 
 ## Goal
 
@@ -240,6 +240,17 @@ still depends on points 4–5 being configured and evaluated.
 **Done when:** One article plus location produces inspectable sources, claims,
 unknowns, and a summary in the app without presenting demo values as facts.
 
+**Implementation:** `pipeline.py` connects intake, identity, discovery,
+collection, extraction, reconciliation, estimates, and reporting. The bounded
+synchronous `POST /api/research` and `POST /api/research/pdf` routes expose all
+four input modes. `ResearchPanel.tsx` presents project candidates, reviewed
+sources, source-linked claims, conflicts, unknowns, and coverage separately
+from the simulator. The existing preview route remains available. Python
+packaging installs the research scripts for the backend. Offline pipeline and
+API tests pass, and the frontend builds. This local implementation returns a
+result after the synchronous request; job retrieval is a later scaling step.
+Live article fetching and provider quality remain point 8 checks.
+
 ### 8. End-to-end evaluation
 
 - Use Pine Island and additional projects in other states. Mock external
@@ -262,6 +273,5 @@ offline regression suite.
 
 ## Next action
 
-Review this plan, then implement **point 1 only**: the evidence contract and
-offline Pine Island fixture. Do not start discovery or frontend changes until
-that contract is reviewed.
+Run the point 8 end-to-end evaluation, document observed coverage and any
+remaining live-service limitations, and keep the regression suite green.

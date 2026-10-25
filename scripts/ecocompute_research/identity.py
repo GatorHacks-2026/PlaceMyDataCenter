@@ -7,7 +7,7 @@ returns ambiguity rather than guessing when multiple project mentions fit.
 from __future__ import annotations
 
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 import re
 
 from pydantic import Field
@@ -38,7 +38,7 @@ DATE_PATTERN = re.compile(
 )
 
 
-class IdentificationStatus(StrEnum):
+class IdentificationStatus(str, Enum):
     SELECTED = "selected"
     AMBIGUOUS = "ambiguous"
     NOT_FOUND = "not_found"

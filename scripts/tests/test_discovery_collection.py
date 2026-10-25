@@ -86,7 +86,7 @@ def test_collection_keeps_matching_source_and_rejects_unrelated_text():
     assert str(result.sources[0].source.url) == "https://example.com/pine"
     assert result.sources[0].source.retrieved_at.tzinfo is not None
     assert len(result.skipped) == 2
-    assert result.status == CollectionStatus.PARTIAL
+    assert result.status == CollectionStatus.COMPLETE
 
 
 def test_collection_retries_transient_error_and_uses_cache():
