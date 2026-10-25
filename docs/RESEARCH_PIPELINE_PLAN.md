@@ -2,6 +2,11 @@
 
 **Status:** Points 1–7 implemented; point 8 offline evaluation complete and live provider evaluation pending.
 
+An optional Gemini Google Search provider was added after point 8. It is
+explicitly selected with `RESEARCH_SEARCH_PROVIDER=gemini`; it is not a
+validated replacement for Brave yet because the tested account cannot use
+2.5 Flash and lacks 3.8 grounding quota. See the evaluation record.
+
 ## Goal
 
 Given a location and an article URL, pasted text, or a text-based PDF, identify the

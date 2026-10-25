@@ -30,7 +30,7 @@ npm run build
 cd backend && .venv/bin/python -m pytest tests -q
 ```
 
-The backend exposes `POST /api/estimate`, `POST /api/research`, and `POST /api/research/pdf`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel accepts an article URL, pasted text, text-based PDF, or location only. Set `BRAVE_SEARCH_API_KEY` and `GEMINI_API_KEY` in the backend environment for web discovery and model extraction. Without them, results show partial coverage. ZIP search still calls the public Zippopotam.us service from the browser.
+The backend exposes `POST /api/estimate`, `POST /api/research`, and `POST /api/research/pdf`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel accepts an article URL, pasted text, text-based PDF, or location only. Set `BRAVE_SEARCH_API_KEY` for the default web discovery and `GEMINI_API_KEY` for model extraction. An experimental Google Search grounding provider can be selected with `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`, but requires account access and quota. Without usable search, results show partial coverage. ZIP search still calls the public Zippopotam.us service from the browser.
 
 Research claims and sources appear separately from the simulator's modeled estimates. See [research plan](docs/RESEARCH_PIPELINE_PLAN.md) and [evaluation](docs/RESEARCH_EVALUATION.md) for scope and current live-service limitations.
 

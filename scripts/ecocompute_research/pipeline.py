@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from hashlib import sha256
+import os
 from typing import Callable
 from urllib.parse import urlsplit
 
@@ -14,6 +15,7 @@ from .discovery import BraveSearchProvider, SearchProvider, canonical_url, disco
 from .estimates import assess_scale
 from .fact_extractor import extract_facts
 from .gemini import GeminiFactExtractor
+from .grounded_search import GeminiGroundedSearchProvider
 from .identity import IdentificationStatus, identify_project
 from .intake import IntakeRequest, read_input
 from .models import ProjectIdentity, ResearchResult, ResearchStatus, SourceRecord, SourceType, StrictModel
@@ -65,7 +67,9 @@ def run_research(
                               candidates=[item.project for item in identity.candidates],
                               limitations=[identity.explanation, *limitations])
 
-    provider = provider or BraveSearchProvider()
+    provider = provider or (GeminiGroundedSearchProvider()
+                            if os.environ.get("RESEARCH_SEARCH_PROVIDER") == "gemini"
+                            else BraveSearchProvider())
     if identity.status != IdentificationStatus.SELECTED:
         location_project = ProjectIdentity(location=intake.location)
         leads = discover_sources(location_project, provider,

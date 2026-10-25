@@ -122,3 +122,27 @@ def test_inaccessible_article_returns_honest_candidate_lead():
     assert result.claims == []
     assert len(result.candidates) == 1
     assert any("could not be accessed" in note for note in result.limitations)
+
+
+def test_gemini_search_is_explicit_opt_in(monkeypatch):
+    from scripts.ecocompute_research import pipeline
+
+    used = []
+    class Grounded(FakeProvider):
+        def search(self, query, *, count):
+            used.append(query)
+            return super().search(query, count=count)
+
+    monkeypatch.setenv("RESEARCH_SEARCH_PROVIDER", "gemini")
+    monkeypatch.setattr(pipeline, "GeminiGroundedSearchProvider", Grounded)
+    result = run_research(
+        IntakeRequest(mode="text", location="Pine Island, MN",
+                      article_text="Google proposes a data center in Pine Island, MN."),
+        fetcher=lambda url: FetchedDocument(
+            url=url, media_type="text/plain",
+            text="Google proposes a data center in Pine Island, MN."),
+        gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert used
+    assert len(result.sources) == 2

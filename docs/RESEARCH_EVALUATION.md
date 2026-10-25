@@ -37,10 +37,28 @@ reviewed sources, zero claims, and explicit access and configuration warnings.
 This is a correct failure report, not a successful live article evaluation.
 `GEMINI_API_KEY` was also absent, so model extraction quality was not measured.
 
+## Gemini grounding trial with a temporary key
+
+A user-authorized temporary Gemini key authenticated successfully against the
+Google models endpoint. On 2026-10-24, a direct `gemini-2.5-flash:generateContent`
+request returned HTTP 404 with Google's message that this model is no longer
+available to new users. `gemini-2.5-flash-lite` returned the same kind of 404.
+A `gemini-3.8-flash` request with Google Search grounding returned HTTP 429
+`RESOURCE_EXHAUSTED` and pointed to plan and quota limits. No grounded source
+URLs or claims were obtained. The temporary key was not saved in the repo.
+
+An opt-in Gemini Google Search adapter now has mocked request and response
+tests. Set `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL` only
+after checking that the account can use the chosen model and grounding quota.
+The adapter treats generated prose as a lead description; only cited URLs are
+passed to the normal source collector, which fetches and checks page content.
+This trial does not satisfy the live acceptance criteria.
+
 ## Remaining acceptance work
 
-1. Configure `BRAVE_SEARCH_API_KEY` and `GEMINI_API_KEY` in the backend process
-   and run from a network that can reach the providers and public source pages.
+1. Configure a search provider with available quota (`BRAVE_SEARCH_API_KEY`, or
+   an account and model that can run Gemini Google Search grounding) and run
+   from a network that can reach the providers and public source pages.
 2. Evaluate the supplied CNBC URL, one accessible alternative account of Pine
    Island, and projects in at least two other states. Record which source URLs
    were reviewed, rejected, or inaccessible and inspect every major claim.
