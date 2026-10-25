@@ -18,10 +18,11 @@ from .gemini import GeminiFactExtractor
 from .grounded_search import GeminiGroundedSearchProvider
 from .identity import IdentificationStatus, identify_project
 from .intake import IntakeRequest, read_input
-from .models import ProjectIdentity, ResearchResult, ResearchStatus, SourceRecord, SourceType, StrictModel
+from .models import Location, ProjectIdentity, ResearchResult, ResearchStatus, SourceRecord, SourceType, StrictModel
 from .reconciliation import reconcile_claims
 from .report import build_summary, find_missing_fields
 from .url_fetch import FetchedDocument, fetch_url
+from .zip_lookup import resolve_us_zip
 
 
 class ResearchConfig(StrictModel):
@@ -56,16 +57,21 @@ def run_research(
     fetcher: Callable[[str], FetchedDocument] = fetch_url,
     gemini: GeminiFactExtractor | None = None,
     config: ResearchConfig | None = None,
+    zip_resolver: Callable[[str], Location] = resolve_us_zip,
 ) -> ResearchResult:
     """Research the exact project; never claim completeness after a failed stage."""
     config = config or ResearchConfig()
-    intake = read_input(request, fetcher=fetcher)
+    intake = read_input(request, fetcher=fetcher, zip_resolver=zip_resolver)
+    location_context = dict(location_input=intake.location_input,
+                            location_hint=intake.location,
+                            location_source=intake.location_source)
     limitations = [warning.message for warning in intake.warnings]
     identity = identify_project(intake.text, intake.location)
     if identity.status == IdentificationStatus.AMBIGUOUS:
         return ResearchResult(status=ResearchStatus.AMBIGUOUS,
                               candidates=[item.project for item in identity.candidates],
-                              limitations=[identity.explanation, *limitations])
+                              limitations=[identity.explanation, *limitations],
+                              **location_context)
 
     provider = provider or (GeminiGroundedSearchProvider()
                             if os.environ.get("RESEARCH_SEARCH_PROVIDER") == "gemini"
@@ -88,6 +94,7 @@ def run_research(
             candidates=list(candidates.values()),
             limitations=[identity.explanation, *limitations, *leads.warnings,
                          "Search snippets are candidate leads, not reviewed project evidence."],
+            **location_context,
         )
 
     project = identity.selected
@@ -124,5 +131,5 @@ def run_research(
     return ResearchResult(
         status=status, project=project, sources=sources, claims=claims,
         conflicts=reconciled.conflicts, missing_fields=missing,
-        summary=summary, limitations=limitations,
+        summary=summary, limitations=limitations, **location_context,
     )

@@ -25,6 +25,9 @@ export interface ResearchClaim {
 export interface ResearchResult {
   schema_version: string
   status: 'complete' | 'partial' | 'ambiguous' | 'failed'
+  location_input: string | null
+  location_hint: { city: string | null; state: string | null; zip_code: string | null; precision: string } | null
+  location_source: string | null
   project: { name: string | null; developer: string | null; location: { city: string | null; state: string | null } } | null
   candidates: { name: string | null; developer: string | null; location: { city: string | null; state: string | null } }[]
   sources: ResearchSource[]

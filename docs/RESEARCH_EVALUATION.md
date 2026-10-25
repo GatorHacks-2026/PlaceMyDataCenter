@@ -13,9 +13,23 @@ npm test
 npm run build
 ```
 
-The latest Python suite passed **75 tests**. The frontend production build passed.
+The latest Python suite passed **80 tests**. The frontend production build passed.
 The pipeline tests use controlled search results and fetched documents rather
 than representing them as live research.
+
+## ZIP research intake check
+
+Research intake now resolves a supplied five-digit ZIP to city and state through
+the public Zippopotam.us lookup before project matching and search. The result
+retains the original ZIP, ZIP-area precision, and lookup provenance; it does
+not treat the ZIP center as the facility address. A failed lookup remains
+partial, and an explicitly supplied state that disagrees with the lookup is
+rejected.
+
+Offline tests cover the lookup response, an unknown ZIP, a mismatched state,
+ZIP plus text project identification, and location-only candidate discovery.
+The live lookup for example ZIP `55963` returned Pine Island, MN. Live article
+discovery and extraction acceptance remain open below.
 
 | Scenario | Observed behavior |
 | --- | --- |

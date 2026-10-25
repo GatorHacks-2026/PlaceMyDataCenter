@@ -10,6 +10,7 @@ from .location import LocationInputError, parse_location
 from .models import Location, StrictModel
 from .pdf_text import MAX_PDF_BYTES, PdfTextError, extract_pdf_text
 from .url_fetch import FetchError, FetchedDocument, fetch_url
+from .zip_lookup import ZipLookupError, resolve_us_zip
 
 
 InputMode = Literal["url", "text", "pdf", "manual_location"]
@@ -66,6 +67,7 @@ class IntakeResult(StrictModel):
     status: Literal["ready", "partial"]
     location_input: str
     location: Location
+    location_source: Literal["user_input", "zippopotam"] = "user_input"
     text: str | None = None
     article_url: str | None = None
     media_type: str | None = None
@@ -76,6 +78,7 @@ def read_input(
     request: IntakeRequest,
     *,
     fetcher: Callable[[str], FetchedDocument] = fetch_url,
+    zip_resolver: Callable[[str], Location] = resolve_us_zip,
 ) -> IntakeResult:
     """Read the seed input; failed access is visible and does not invent text."""
     try:
@@ -90,6 +93,17 @@ def read_input(
         location=location,
         article_url=request.article_url,
     )
+    if location.zip_code:
+        try:
+            resolved = zip_resolver(location.zip_code)
+            if location.state and resolved.state != location.state:
+                raise IntakeError("zip_state_mismatch",
+                                  f"ZIP {location.zip_code} is not in {location.state}")
+            result.location = resolved
+            result.location_source = "zippopotam"
+        except ZipLookupError as exc:
+            result.status = "partial"
+            result.warnings.append(IntakeWarning(code="zip_lookup_failed", message=str(exc)))
     if request.mode == "manual_location":
         return result
     if request.mode == "text":

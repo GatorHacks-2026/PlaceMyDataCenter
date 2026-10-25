@@ -85,6 +85,11 @@ export default function ResearchPanel({ location, onLocationChange }: Props) {
       </form>
 
       {result && <div className="mt-5 space-y-4 border-t border-navy-600 pt-4 text-xs text-slate-300">
+        {result.location_hint?.zip_code && <p className="rounded border border-navy-600 p-2 text-slate-300">
+          Search area: ZIP {result.location_input} {result.location_hint.city && result.location_hint.state
+            ? `→ ${result.location_hint.city}, ${result.location_hint.state} (public ZIP lookup)`
+            : '(city and state unresolved)'}. This identifies a ZIP area, not the facility address.
+        </p>}
         <div><span className="font-semibold text-white">Status: {result.status}</span><p className="mt-1">{result.project?.name || result.project?.developer || 'Project identification pending'}{result.project?.location.city ? ` · ${result.project.location.city}` : ''}{result.project?.location.state ? `, ${result.project.location.state}` : ''}</p></div>
         {result.summary && <div><h3 className="font-semibold text-white">Summary</h3><p className="mt-1 whitespace-pre-wrap leading-relaxed">{result.summary}</p></div>}
         {result.candidates.length > 0 && <div><h3 className="font-semibold text-white">Possible projects</h3><ul className="mt-1 list-inside list-disc">{result.candidates.map((item, index) => <li key={index}>{item.name || item.developer || 'Unnamed project'} · {item.location.city || item.location.state || 'location unclear'}</li>)}</ul></div>}

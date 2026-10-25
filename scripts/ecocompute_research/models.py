@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from enum import Enum
 from math import isfinite
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import (
     AfterValidator,
@@ -225,6 +225,9 @@ class MissingField(StrictModel):
 class ResearchResult(StrictModel):
     schema_version: str = Field(default="1.0", pattern=r"^1\.\d+$")
     status: ResearchStatus
+    location_input: str | None = None
+    location_hint: Location | None = None
+    location_source: Literal["user_input", "zippopotam"] | None = None
     project: ProjectIdentity | None = None
     candidates: list[ProjectIdentity] = Field(default_factory=list)
     sources: list[SourceRecord] = Field(default_factory=list)
