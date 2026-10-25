@@ -10,6 +10,12 @@ Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
 
+## 2026-10-25 — Free keyless web discovery
+
+- Added Tavily Search as the default source-lead provider using its free keyless API. A private Tavily key can raise limits; Brave and Gemini remain optional providers.
+- City or resolved-ZIP location-only input may automatically investigate one candidate after fetching its page and checking project identity. Broad areas return candidate article links for the user to choose. Search snippets alone are never reported as reviewed evidence.
+- Added explicit handling for keyless rate limits, offline provider and pipeline checks, and updated research intake copy.
+
 ## 2026-10-25 — Screening-grounded Playground
 
 - Moved Playground beneath the satellite site screening and removed the separate demo Playground view.

@@ -228,6 +228,12 @@ class MissingField(StrictModel):
     town_hall_question: str | None = None
 
 
+class SearchLead(StrictModel):
+    title: str = Field(min_length=1)
+    url: AnyHttpUrl
+    description: str = ""
+
+
 class ResearchResult(StrictModel):
     schema_version: str = Field(default="1.0", pattern=r"^1\.\d+$")
     status: ResearchStatus
@@ -236,6 +242,8 @@ class ResearchResult(StrictModel):
     location_source: Literal["user_input", "zippopotam"] | None = None
     project: ProjectIdentity | None = None
     candidates: list[ProjectIdentity] = Field(default_factory=list)
+    # Search results are leads until their page content has been fetched and reviewed.
+    search_leads: list[SearchLead] = Field(default_factory=list)
     sources: list[SourceRecord] = Field(default_factory=list)
     claims: list[Claim] = Field(default_factory=list)
     conflicts: list[ClaimConflict] = Field(default_factory=list)

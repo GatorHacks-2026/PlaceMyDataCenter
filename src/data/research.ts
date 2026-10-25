@@ -32,6 +32,7 @@ export interface ResearchResult {
   location_source: string | null
   project: { name: string | null; developer: string | null; location: { city: string | null; state: string | null; zip_code: string | null } } | null
   candidates: { name: string | null; developer: string | null; location: { city: string | null; state: string | null } }[]
+  search_leads: { title: string; url: string; description: string }[]
   sources: ResearchSource[]
   claims: ResearchClaim[]
   conflicts: { id: string; field: string; claim_ids: string[]; explanation: string; resolved: boolean }[]

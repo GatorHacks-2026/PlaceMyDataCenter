@@ -167,3 +167,16 @@ def test_provider_failure_does_not_erase_other_search_results():
     assert result.status == DiscoveryStatus.PARTIAL
     assert len(result.hits) == 1
     assert result.warnings
+
+
+def test_collection_accepts_target_city_without_named_developer():
+    project = ProjectIdentity(location=Location(city="Pine Island", state="MN",
+                                                precision=LocationPrecision.CITY))
+    result = collect_sources(
+        [SearchHit(title="Pine Island data center", url="https://example.com/pine")],
+        project,
+        fetcher=lambda url: FetchedDocument(url=url, media_type="text/plain",
+            text="A data center is proposed in Pine Island, Minnesota."),
+        min_interval_seconds=0,
+    )
+    assert len(result.sources) == 1

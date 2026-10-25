@@ -22,7 +22,9 @@ text extraction have size and access limits. Image-only pages use local
 `pdftoppm` and `tesseract` when both are installed (up to 20 OCR pages); absent
 OCR tools still yield a partial no-text result for fully scanned files.
 
-Broader discovery uses Brave when `BRAVE_SEARCH_API_KEY` is configured. An experimental
+Broader discovery uses Tavily Search's free keyless mode by default. A private
+`TAVILY_API_KEY` raises the available free monthly limit. Brave can be selected
+with `RESEARCH_SEARCH_PROVIDER=brave` and `BRAVE_SEARCH_API_KEY`. An experimental
 Gemini Google Search provider can be selected with
 `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`; it requires a model
 and grounding quota that actually work for the account. Extraction can use
