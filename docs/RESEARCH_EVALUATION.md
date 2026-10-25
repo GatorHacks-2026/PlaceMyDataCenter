@@ -66,18 +66,50 @@ The adapter treats generated prose as a lead description; only cited URLs are
 passed to the normal source collector, which fetches and checks page content.
 This trial does not satisfy the live acceptance criteria.
 
+## El Paso live probe and reference source
+
+The [Inside Climate News article about Meta's El Paso project](https://insideclimatenews.org/news/24092026/el-paso-electric-only-considered-gas-to-power-meta-data-center/)
+is the next acceptance seed, with location `El Paso, TX`. A live probe fetched
+9,951 characters and selected the Meta project. The result contained one
+reviewed source and remained `partial` because no additional source was
+collected. Deterministic extraction reported 1,000 MW and 366 MW as competing
+data-center capacities and produced a false conflict. The article instead
+describes a 1,000 MW data center and a proposed 366 MW gas plant serving it.
+It also yielded a $10 billion investment claim; the scope and date of that
+figure need to be retained during comparison with other sources.
+
+The [City of El Paso data center resource page](https://www.elpasotexas.gov/data-centers)
+is a public reference for the same Meta/Wurldwide project. It distinguishes
+the 366 MW McCloud gas plant from the data center and lists water allocations:
+Tier I average/maximum 100,000/300,000 gallons per day; Tier II
+750,000/1,000,000; and Tier III 1,500,000/2,500,000. It also describes a
+$1.5 billion infrastructure development, a December 2023 agreement, tax
+incentives, and jobs. This page was inspected as a reference, but it has not
+yet been retrieved by the research pipeline in a multi-source run. The
+$1.5 billion and $10 billion descriptions cannot be treated as a confirmed
+conflict without checking their scope and as-of dates.
+
+The pipeline currently accepts one seed URL and discovers further URLs through
+the selected search provider. It does not follow links from the seed page.
+Brave could not run without a key, and the temporary Gemini grounding trial
+returned no usable search results. Giving the pipeline this article alone
+therefore does not currently demonstrate automatic cross-source scraping.
+
 ## Remaining acceptance work
 
-1. Configure a search provider with available quota (`BRAVE_SEARCH_API_KEY`, or
-   an account and model that can run Gemini Google Search grounding) and run
-   from a network that can reach the providers and public source pages.
-2. Evaluate the supplied CNBC URL, one accessible alternative account of Pine
-   Island, and projects in at least two other states. Record which source URLs
-   were reviewed, rejected, or inaccessible and inspect every major claim.
-3. If CNBC remains inaccessible, paste article text through the text mode and
-   keep the pasted copy labeled as user supplied. Check that independently
-   retrieved sources support or disagree with each material claim.
-4. Review provider latency/cost and whether longer runs need a persistent job
+1. Fix the El Paso 366 MW classification and add an offline regression test
+   that keeps data-center capacity separate from generation serving the site.
+2. Enable a usable discovery path: configure a search provider with available
+   quota (`BRAVE_SEARCH_API_KEY`, or an account and model that can run Gemini
+   Google Search grounding), or support an explicit additional-source URL.
+   Run from a network that can reach public source pages.
+3. Rerun El Paso with the article and city page. Verify the reviewed source
+   list, phase-specific water claims, investment scope, and absence of a false
+   MW conflict. Record rejected and inaccessible URLs as well as accepted ones.
+4. Extend the live sample beyond the one-source CNBC run and El Paso probe to
+   an accessible alternative Pine Island source and projects in another state.
+   Inspect every major claim and the coverage limitations.
+5. Review provider latency/cost and whether longer runs need a persistent job
    endpoint. The current request is bounded but synchronous.
 
 Passing offline tests does not establish live source recall, model extraction

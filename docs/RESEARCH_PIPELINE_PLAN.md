@@ -1,6 +1,8 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–7 implemented; point 8 offline evaluation complete and live provider evaluation pending.
+**Status:** Points 1–7 implemented; point 8 offline evaluation complete. Live
+article intake has been exercised, but multi-source discovery and extraction
+accuracy still need acceptance work.
 
 An optional Gemini Google Search provider was added after point 8. It is
 explicitly selected with `RESEARCH_SEARCH_PROVIDER=gemini`; it is not a
@@ -16,9 +18,10 @@ Location-only input should return candidate projects when a single project canno
 be identified. The article is a starting point, not the sole evidence source.
 
 This plan extends the existing React/FastAPI application. The current
-`POST /api/investigations/preview` remains a preview until the research endpoint
-is implemented. The simulator's demo assumptions must never be presented as
-facts about a researched project.
+`POST /api/investigations/preview` remains a preview; the separate
+`POST /api/research` and `POST /api/research/pdf` endpoints now expose the
+research pipeline. The simulator's demo assumptions must never be presented
+as facts about a researched project.
 
 ## Working example: Google Pine Island
 
@@ -36,7 +39,50 @@ source, subject, status, and context. The proposed Xcel electric service
 agreement and related Minnesota regulatory material are research targets;
 proposed terms must not be labeled approved.
 
-### Baseline defects observed in the supplied extractor
+The later live CNBC run fetched the article and kept the 780 MW facility,
+1,400 MW wind, 200 MW solar, and 300 MW battery figures separate. It remained
+partial because no independent source was collected and model extraction fell
+back to deterministic rules. The first live parse had also treated generic
+25 MW and 1,000 MW examples as Pine Island capacities; that defect was fixed
+with a project-context check and a regression test.
+
+## Next live acceptance case: Meta in El Paso
+
+Use the [September 24, 2026 Inside Climate News article](https://insideclimatenews.org/news/24092026/el-paso-electric-only-considered-gas-to-power-meta-data-center/)
+as the seed URL with `El Paso, TX`. Cross-check it against the
+[City of El Paso data center resource page](https://www.elpasotexas.gov/data-centers)
+and the city's linked agreements. The article describes a 1,000 MW Meta data
+center and a proposed 366 MW McCloud gas plant serving it. The city page
+separately reports phased water allocations, a 2023 development agreement,
+incentives, and jobs. Its $1.5 billion infrastructure description and the
+article's $10 billion project description need source, scope, and date context
+before they can be compared as investment claims.
+
+A live probe fetched the Inside Climate News article and selected the Meta
+project, but deterministic extraction labeled both 1,000 MW and 366 MW as
+data-center capacity. Reconciliation then reported a false capacity conflict.
+This is an open defect. The seed URL alone also did not fetch the city page:
+the current pipeline discovers additional URLs through a configured search
+provider. Brave was unavailable without a key, and the Gemini trial supplied
+no usable grounded URLs. The pipeline does not follow links from the seed
+article. The city page has been inspected as a public reference; it has not
+yet been accepted as a pipeline-collected source.
+
+**Acceptance checks for this case:**
+
+1. Fetch and identify the Meta project from the article without assigning
+   unrelated El Paso projects or general data-center facts to it.
+2. Record 1,000 MW as reported data-center capacity and 366 MW as proposed
+   gas-generation capacity. Do not create a conflict between those subjects.
+3. Collect the city page as a separate, cited source through a working
+   discovery path or an explicit additional-source input. Keep inaccessible
+   pages and search failures visible.
+4. Preserve the city's Tier I/II/III average and maximum water values with
+   their phase and measure; do not collapse them into one unqualified number.
+5. Keep the $1.5 billion and $10 billion investment descriptions attributed
+   to their sources and scopes until their relationship is established.
+
+## Baseline defects observed in the supplied extractor
 
 The separate `/Users/jaysuryaray/Downloads/input_extractor.py` is useful
 starting code, but it is not integrated into this backend. In local tests:
@@ -55,20 +101,19 @@ starting code, but it is not integrated into this backend. In local tests:
 The prototype also lacks automatic URL discovery, project matching, source
 records, claim reconciliation, and a complete `ActiveSiteContract` builder.
 
-## Planned code layout
+## Code layout
 
-Place new research code in a Python package under `scripts/ecocompute_research/`.
-Keep the FastAPI route in `backend/app/` as a thin adapter. Establish package
-installation/import configuration before connecting the route.
+Research code is in `scripts/ecocompute_research/`; the FastAPI route in
+`backend/app/` is a thin adapter. The package is installed for backend imports.
 
-| Planned file | Responsibility |
+| File | Responsibility |
 | --- | --- |
 | `scripts/ecocompute_research/models.py` | Versioned Pydantic input, source, claim, conflict, missing-field, and result types. |
 | `scripts/ecocompute_research/intake.py` | Validate input; reuse and improve URL, text, PDF, and location extraction. |
 | `scripts/ecocompute_research/identity.py` | Identify one project or return ranked candidates and ambiguity. |
 | `scripts/ecocompute_research/discovery.py` | Generate bounded queries and call a configurable web search provider. |
 | `scripts/ecocompute_research/collection.py` | Fetch, deduplicate, clean, and record HTML/PDF sources. |
-| `scripts/ecocompute_research/facts.py` | Extract typed, source-linked claims and normalize units. |
+| `scripts/ecocompute_research/facts.py`, `gemini.py`, `fact_extractor.py` | Extract typed, source-linked claims and normalize units. |
 | `scripts/ecocompute_research/reconciliation.py` | Separate phases and capacity types; retain unresolved conflicts. |
 | `scripts/ecocompute_research/estimates.py` | Configurable, explicitly provisional engineering proxies. |
 | `scripts/ecocompute_research/report.py` | Missing-field audit, neutral questions, and cited summary. |
@@ -76,9 +121,9 @@ installation/import configuration before connecting the route.
 | `backend/app/research.py` | FastAPI request validation and research endpoint. |
 | `backend/tests/test_research_*.py` | Offline fixtures, unit tests, and API tests. |
 
-These are planned boundaries, not files to create all at once. Reuse safe parts
-of the supplied extractor rather than copying its defaults or treating its
-summary document as proof that a function exists.
+The implementation also has separate modules for location, URL and PDF intake,
+HTML cleanup, grounded search, and the legacy result adapter. The supplied
+extractor served as a baseline, not as a source of unverified defaults.
 
 ## Implementation sequence
 
@@ -198,6 +243,8 @@ acceptance check. Search snippets are leads, not verified evidence.
 
 **Done when:** The Pine Island fixture never treats 200, 300, 1,400, or 1,900
 MW as the data center's 780 MW capacity; unsupported fields remain unknown.
+The El Paso case must also distinguish the data-center load from generation
+built to serve it.
 
 **Implementation:** `facts.py` provides a deliberately narrow regex fallback
 for explicitly contextualized MW, daily water, investment, and permanent jobs.
@@ -207,9 +254,11 @@ source or whose MW value/subject contradicts its excerpt. `fact_extractor.py`
 uses the fallback when Gemini is unavailable. Offline tests cover Pine Island
 MW separation, multi-project articles, a model misclassification, and model
 failure. The model adapter follows the [Gemini structured output reference](https://ai.google.dev/gemini-api/docs/structured-output?lang=web).
-No Gemini key is available in this checkout, so live extraction quality has
-not been assessed. The deterministic fallback does not claim comprehensive
-environmental or tariff extraction.
+No Gemini key is stored in this checkout. A temporary-key trial could not
+run the configured Gemini extraction model, so live model extraction quality
+has not been assessed. The deterministic fallback does not claim comprehensive
+environmental or tariff extraction and currently misclassifies El Paso's
+366 MW gas plant.
 
 ### 6. Reconciliation, estimates, and report
 
@@ -270,11 +319,11 @@ offline regression suite.
 **Offline evaluation:** `scripts/tests/test_pipeline.py` covers Pine Island,
 a synthetic Virginia project, provider outage, and inaccessible article. The
 rest of the test suite covers duplicate and unrelated sources, conflicts, and
-scanned PDFs. All 65 Python tests and the frontend build pass. A direct local
-run with the supplied CNBC URL returned `partial` because the hostname could
-not be resolved here and the Brave key was absent. The Gemini key is also
-absent. See `docs/RESEARCH_EVALUATION.md` for the evaluation record and live
-acceptance tasks. Point 8 is therefore not yet fully accepted.
+scanned PDFs. The latest recorded suite passed 75 Python tests and the
+frontend build. The later live CNBC run fetched the article and extracted
+four distinct power figures, but no additional source. The El Paso probe
+exposed a false capacity conflict. See `docs/RESEARCH_EVALUATION.md` for the
+run record and remaining acceptance tasks. Point 8 is not yet fully accepted.
 
 ## Decisions before their corresponding implementation point
 
@@ -287,5 +336,7 @@ acceptance tasks. Point 8 is therefore not yet fully accepted.
 
 ## Next action
 
-Run the documented live provider evaluation from an environment with API keys
-and source access; inspect coverage and claim attribution before merging.
+Fix the El Paso gas-plant capacity classification, add a regression fixture,
+and then run the documented multi-source evaluation with a usable discovery
+provider or explicit additional-source input. Inspect source coverage and
+claim attribution before merging.
