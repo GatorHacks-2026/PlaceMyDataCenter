@@ -1,4 +1,4 @@
-# EcoCompute AI
+# DataCenter Lens
 
 A data center sustainability simulator. The React dashboard shows modeled annual water, electricity, and carbon estimates for a selected US location, capacity, utilization, and cooling type. Regional grid factors and drought labels are demo assumptions, not measured site data.
 
