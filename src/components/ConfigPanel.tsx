@@ -4,7 +4,6 @@ import {
   Play,
   Activity,
   AlertTriangle,
-  Search,
   Loader2,
   MapPin,
 } from 'lucide-react'
@@ -26,12 +25,6 @@ interface ConfigPanelProps {
   stale: boolean
   error: string | null
   analyzing: boolean
-  // ZIP search (Phase 1B)
-  zipInput: string
-  zipSearching: boolean
-  zipError: string | null
-  onZipInputChange: (value: string) => void
-  onZipSearch: () => void
   onCapacityChange: (value: number) => void
   onUtilizationChange: (value: number) => void
   onCoolingChange: (value: CoolingType) => void
@@ -46,11 +39,6 @@ export default function ConfigPanel({
   stale,
   error,
   analyzing,
-  zipInput,
-  zipSearching,
-  zipError,
-  onZipInputChange,
-  onZipSearch,
   onCapacityChange,
   onUtilizationChange,
   onCoolingChange,
@@ -64,7 +52,7 @@ export default function ConfigPanel({
       {/* Selected location */}
       <div>
         <p className="text-xs uppercase tracking-wider text-slate-400">
-          Selected Location
+          Simulator location
         </p>
         <div className="mt-1 flex items-center gap-2">
           <h2 className="text-xl font-semibold text-white">
@@ -78,56 +66,6 @@ export default function ConfigPanel({
         </div>
         <p className="text-xs text-slate-500">
           {location.lat.toFixed(4)}, {location.lng.toFixed(4)}
-        </p>
-      </div>
-
-      {/* ZIP search (Phase 1B) */}
-      <div>
-        <label
-          htmlFor="zip"
-          className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-200"
-        >
-          <Search size={16} className="text-teal-accent" />
-          Search by US ZIP
-        </label>
-        <div className="flex gap-2">
-          <input
-            id="zip"
-            type="text"
-            inputMode="numeric"
-            maxLength={5}
-            placeholder="e.g. 32601"
-            value={zipInput}
-            onChange={(e) =>
-              onZipInputChange(e.target.value.replace(/\D/g, '').slice(0, 5))
-            }
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !zipSearching) onZipSearch()
-            }}
-            className="w-full rounded-lg border border-navy-600 bg-navy-700 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-teal-accent focus:outline-none"
-          />
-          <button
-            onClick={onZipSearch}
-            disabled={zipSearching || zipInput.length !== 5}
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-navy-600 px-3 py-2 text-sm font-medium text-slate-100 transition-colors hover:bg-navy-600/70 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {zipSearching ? (
-              <Loader2 size={15} className="animate-spin" />
-            ) : (
-              <Search size={15} />
-            )}
-            <span>{zipSearching ? 'Searching' : 'Search'}</span>
-          </button>
-        </div>
-        {zipError && (
-          <p className="mt-1.5 flex items-start gap-1.5 text-[11px] text-red-300">
-            <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-            <span>{zipError}</span>
-          </p>
-        )}
-        <p className="mt-1.5 text-[10px] text-slate-500">
-          Coordinates are approximate ZIP centroids via a public lookup. Searched
-          sites use demo grid/drought placeholders until Phase 3.
         </p>
       </div>
 

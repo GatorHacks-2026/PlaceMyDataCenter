@@ -13,6 +13,8 @@ python3 -m venv .venv
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
+For scanned PDF OCR on macOS, install the local tools with `brew install poppler tesseract`.
+
 Start the frontend in another terminal (Node 22+):
 
 ```sh
@@ -27,10 +29,20 @@ Open <http://localhost:5173/>. Vite proxies `/api` to the local FastAPI server. 
 ```sh
 npm test
 npm run build
-cd backend && .venv/bin/python -m pytest tests -q
+PYTHONPATH=backend backend/.venv/bin/python -m pytest scripts/tests backend/tests -q
 ```
 
-The backend exposes `POST /api/estimate`; interactive API documentation is at <http://127.0.0.1:8000/docs>. ZIP search still calls the public Zippopotam.us service from the browser.
+The backend exposes `POST /api/estimate`, synchronous `POST /api/research` and `POST /api/research/pdf`, background `POST /api/research/jobs` and `POST /api/research/jobs/pdf`, `GET /api/research/jobs/{id}`, and `POST /api/research/scenario`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel uses background jobs and accepts an article URL, pasted text, PDF, or location only. With a seed article or document, users may provide up to five additional public source URLs. For article URLs, the backend also checks relevant links in the article. Scanned PDFs need `pdftoppm` (Poppler) and `tesseract` installed on the backend host. Copy `.env.example` to `.env` at the repository root and add your private keys there; the backend loads it on startup and `.env` is git-ignored. Set `BRAVE_SEARCH_API_KEY` for broader web discovery, `GEMINI_API_KEY` for model extraction, `EIA_API_KEY` for electricity screening, and optionally `API_USGS_PAT` for USGS access. An experimental Google Search grounding provider can be selected with `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`, but requires account access and quota. Without usable search, results show partial coverage even when supplied or linked sources are reviewed.
+
+Research claims and sources appear separately from the simulator's modeled estimates. A project-specific scenario needs explicit IT load and efficiency inputs; carbon stays unknown without a supplied grid factor. The map's ZIP search uses Zippopotam.us from the browser; research intake also resolves ZIPs through that service on the backend to find city/state search context while retaining ZIP-area precision. City research uses the public Nominatim service for an approximate city marker, with a backend cache and one-request-per-second limit. State-only results show no facility marker. The public Nominatim service has a [usage policy](https://operations.osmfoundation.org/policies/nominatim/) and must be replaced or self-hosted for heavier use. Background jobs are in-memory and need a persistent queue for multi-worker deployment. See [research plan](docs/RESEARCH_PIPELINE_PLAN.md) and [evaluation](docs/RESEARCH_EVALUATION.md) for scope and current live-service limitations.
+
+The map defaults to USGS satellite/aerial imagery and can switch to a street map. A research result with a project-associated ZIP centers the map on that approximate ZIP area; city and state results use broader approximate centers. None of these area centers becomes a facility point. Click **Place proposed facility** and choose a point on the map, then click **Place my home** and choose another point. The panel reports their straight-line distance and a fixed 0–1, 1–3, 3–5, or beyond-5-mile band. The 1-, 3-, and 5-mile circles are distance guides, not measured environmental impacts or verified facility boundaries. Placed points are cleared when a new research result or map location is selected and are never sent to the research pipeline.
+
+The Playground no longer asks for two ZIP codes. Its capacity, utilization, and cooling inputs remain illustrative. The satellite view has a separate IT-capacity slider shared with site screening; changing it makes the input hypothetical and clears the old screening until the user runs it again. It does not alter the fixed distance rings. The research location field in the header still accepts a ZIP or city/state.
+
+After research, the satellite map draws the best available approximate area outline: a Census ZIP Code Tabulation Area (ZCTA), a city polygon from the existing geocoder, or a Census state outline. A search ZIP without a project-associated ZIP is explicitly labeled as an unverified search area. A ZCTA is only an approximation of a USPS ZIP area, and some ZIPs have no matching polygon. The user places the facility pin inside the researched area when possible; the pin, rather than the area center, supplies site coordinates for **Run site screening**. A home pin adds a distance-based noise estimate. Only an unambiguous sourced IT-capacity claim prefills the screening size; otherwise the user confirms a hypothetical IT capacity. Screening jobs call the standalone `Data_Center_backend.py` model via FastAPI and show each layer's source, assumptions, and limitations. Configure `EIA_API_KEY` for the EIA electricity layer; the public USGS water lookup can run without `API_USGS_PAT`. The screening flags are exploratory indicators, not permitting decisions: state generation minus sales is not grid interconnection capacity, a nearby river is not a verified water supply, and noise equipment levels are assumed.
+
+After screening, the satellite map draws a dashed cyan outline for the USGS gauge search radius, markers for gauges with coordinates, and a dashed purple contour for the modeled distance to an assumed night noise threshold. The yellow gauge marker identifies the gauge used in the water comparison; cyan markers show the other analyzed gauges. **View USGS search area** zooms to that outline. Gauge markers and their flow values do not identify a facility water source. The noise contour uses assumed equipment levels and a comparison threshold; it is not measured sound or a legal boundary. The fixed 1-, 3-, and 5-mile guides remain separate.
 
 ## See API requests and results
 
