@@ -1,4 +1,4 @@
-# EcoCompute research pipeline plan
+# Data Center Lens research pipeline plan
 
 **Status (2026-10-25):** Points 1–7 are implemented, including background
 research jobs, local PDF OCR, a separate project scenario, and approximate

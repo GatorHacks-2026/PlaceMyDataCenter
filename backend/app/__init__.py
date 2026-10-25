@@ -1,1 +1,1 @@
-"""EcoCompute API."""
+"""Data Center Lens API."""

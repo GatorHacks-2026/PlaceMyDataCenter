@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// EcoCompute AI — Phase 1A engineering estimates
+// Data Center Lens — Phase 1A engineering estimates
 //
 // These are TRANSPARENT, DETERMINISTIC engineering estimates built from
 // plausible industry assumptions. They are MODELED values, not measurements of

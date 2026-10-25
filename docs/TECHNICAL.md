@@ -1,4 +1,4 @@
-# EcoCompute AI — Technical Description
+# Data Center Lens — Technical Description
 
 > How the current codebase (through Phase 2A) is structured and how the pieces
 > fit together. A forward-looking **Planned architecture** section at the end

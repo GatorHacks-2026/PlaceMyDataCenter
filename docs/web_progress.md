@@ -10,6 +10,12 @@ Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
 
+## 2026-10-25 — Data Center Lens naming
+
+- Renamed the visible app, browser title, PDF branding, and API docs to
+  **Data Center Lens**. Updated package metadata and the current documentation
+  titles. Existing import paths and the GitHub repository URL remain in place.
+
 ## 2026-10-25 — Warm light theme and guided entry
 
 - Added a light theme with linen surfaces, pine and sage accents, clay alerts,

@@ -15,7 +15,7 @@ from .html_text import ArticleLink, parse_html
 
 MAX_BODY_BYTES = 5_000_000
 MAX_REDIRECTS = 3
-USER_AGENT = "EcoComputeResearch/0.1 (+public-data-center-research)"
+USER_AGENT = "DataCenterLensResearch/0.1 (+public-data-center-research)"
 Resolver = Callable[[str], list[str]]
 
 

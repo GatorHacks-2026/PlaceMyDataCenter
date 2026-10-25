@@ -49,7 +49,7 @@ def geocode_city(city: str | None = Query(default=None, min_length=2, max_length
                 params={**({"city": city} if city else {}), "state": state_name, "country": "United States",
                         "countrycodes": "us", "format": "jsonv2", "addressdetails": 1,
                         "limit": 3, "polygon_geojson": 1, "polygon_threshold": 0.001},
-                headers={"User-Agent": "EcoComputeAI/0.1 (local research map; contact: github.com/PlaceMyDataCenter)",
+                headers={"User-Agent": "DataCenterLens/0.1 (local research map; contact: github.com/PlaceMyDataCenter)",
                          "Accept-Language": "en"}, timeout=10,
             )
             response.raise_for_status()

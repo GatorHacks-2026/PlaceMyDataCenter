@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// EcoCompute AI — Phase 1B ZIP geocoding (Option B: runtime API)
+// Data Center Lens — Phase 1B ZIP geocoding (Option B: runtime API)
 //
 // Resolves a US 5-digit ZIP code to approximate center coordinates using the
 // free, key-less Zippopotam.us API (https://api.zippopotam.us/us/<zip>).

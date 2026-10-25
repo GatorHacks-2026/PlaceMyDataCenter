@@ -72,7 +72,7 @@ class EstimateResponse(BaseModel):
     assumptions: Assumptions
 
 
-app = FastAPI(title="EcoCompute API")
+app = FastAPI(title="Data Center Lens API")
 app.include_router(investigation_router)
 app.include_router(research_router)
 app.include_router(research_scenario_router)

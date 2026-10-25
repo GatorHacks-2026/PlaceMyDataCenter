@@ -4,7 +4,6 @@ import MapPanel, { type ResearchArea } from './components/MapPanel'
 import ResearchPanel from './components/ResearchPanel'
 import AuditPanel from './components/AuditPanel'
 import AgenticBattlePanel from './components/AgenticBattlePanel'
-import ScreeningPlayground from './components/ScreeningPlayground'
 import ErrorBoundary from './components/ErrorBoundary'
 import { LOCATIONS, type Location } from './data/demo'
 import { projectZipFromResult, type ResearchResult } from './data/research'
@@ -207,7 +206,7 @@ export default function App() {
         <header className="flex flex-wrap items-center gap-3 rounded-2xl border border-navy-600 bg-navy-800 px-4 py-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-accent to-cyan-500 text-navy-900"><Leaf size={23} /></div>
           <div className="min-w-[190px] flex-1">
-            <div className="flex flex-wrap items-center gap-2"><h1 className="text-lg font-bold text-white">EcoCompute AI</h1><span className="rounded-full border border-teal-accent/30 bg-teal-accent/10 px-2 py-0.5 text-[10px] font-semibold text-teal-accent">Citizen data center auditor</span></div>
+            <div className="flex flex-wrap items-center gap-2"><h1 className="text-lg font-bold text-white">Data Center Lens</h1><span className="rounded-full border border-teal-accent/30 bg-teal-accent/10 px-2 py-0.5 text-[10px] font-semibold text-teal-accent">Citizen data center auditor</span></div>
             <p className="text-xs text-slate-400">Explore a proposal, its evidence, and possible local impacts.</p>
           </div>
           <button type="button" onClick={() => setTheme(current => current === 'light' ? 'dark' : 'light')}
@@ -296,7 +295,6 @@ export default function App() {
             capacity={screeningCapacity} basis={screeningBasis} confirmed={screeningConfirmed}
             onCapacityChange={changeScreeningCapacity} result={screeningResult} onResultChange={setScreeningResult} />
           <p className="rounded-xl border border-navy-600 bg-navy-800 p-3 text-xs text-slate-400">The rings are fixed distance guides. They do not show measured noise, water, air quality, health, or utility-bill effects.</p>
-          <ScreeningPlayground screening={screeningResult} />
         </section>
 
         <div id="audit-view" className={activeView === 'audit' ? '' : 'hidden'}>
@@ -308,7 +306,7 @@ export default function App() {
             screening={screeningResult} research={researchResult} onShowMap={() => setActiveView('map')} />
         </div>
 
-        <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Site screening separates observed regional data from modeled assumptions; Playground comparisons are scenario estimates.</footer>
+        <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Site screening separates observed regional data from modeled assumptions.</footer>
       </div>
     </div>
   )
