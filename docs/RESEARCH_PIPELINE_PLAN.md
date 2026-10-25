@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Point 1 implemented on `research-evidence-contract`; pending review.
+**Status:** Points 1 and 2 implemented on `research-evidence-contract`; later points pending.
 
 ## Goal
 
@@ -106,8 +106,10 @@ This point has no API or live research behavior yet.
 
 ### 2. Dependable input and location handling
 
-- Integrate the useful URL, PDF, Gemini, and regex routines as separate
-  functions. Add required dependencies and configuration.
+- Integrate the useful URL and PDF intake routines as separate functions. Add
+  required dependencies. Introduce Gemini and deterministic claim extraction
+  in point 5, once subjects and source references can be validated; the
+  prototype's bare-number regex would mislabel Pine Island figures.
 - Support URL plus location, text plus location, PDF plus location, and
   location-only input. Validate URL schemes and hosts, content size, PDF size,
   redirects, and timeouts before external fetching.
@@ -118,6 +120,17 @@ This point has no API or live research behavior yet.
 
 **Done when:** All four input paths have offline tests, failed fetches are
 explained, and unknown location details are not invented.
+
+**Implementation:** `intake.py` validates and routes all four modes;
+`location.py` parses US state, ZIP, city/state, county/state, and address/state
+without supplying coordinates or county guesses; `url_fetch.py` checks public
+URLs and redirects, bounds downloads, and reports access failures; `pdf_text.py`
+extracts text-based PDFs and reports scanned/empty PDFs; `html_text.py` removes
+common page chrome. `scripts/tests/test_intake.py` covers these paths offline,
+including a generated text PDF with pypdf. The fetcher rejects local and
+private addresses, but deployment still needs network egress controls against
+DNS changes after validation. No live CNBC fetch or FastAPI research route is
+part of this point.
 
 ### 3. Project identification
 
