@@ -20,6 +20,7 @@ export interface ScreeningLayer {
 }
 
 export interface SiteScreeningResult {
+  screening_job_id: string
   status: 'partial' | 'screened'
   site: { state: string; state_source: string; lat: number; lng: number }
   input: { it_capacity_mw: number; capacity_basis: string; capacity_claim_id: string | null; home_distance_m: number | null; radius_miles: number }
@@ -73,6 +74,6 @@ export async function requestSiteScreening(input: SiteScreeningInput, signal?: A
     if (!poll.ok) throw new Error(`Site screening could not be checked (HTTP ${poll.status}).`)
     const job = await poll.json() as { status: string; result?: SiteScreeningResult; error?: string }
     if (job.status === 'failed') throw new Error(job.error || 'Site screening failed.')
-    if (job.status === 'complete' && job.result) return job.result
+    if (job.status === 'complete' && job.result) return { ...job.result, screening_job_id: queued.job_id }
   }
 }

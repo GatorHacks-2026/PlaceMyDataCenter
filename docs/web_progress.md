@@ -4,11 +4,39 @@
 follows. Research coverage is tracked in `RESEARCH_PIPELINE_PLAN.md` and
 `RESEARCH_EVALUATION.md`.
 
-**Branch:** `research-evidence-contract`
+**Current checkout:** `main`
 
 Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
+
+## 2026-10-25 — Screening-grounded Agentic Battle
+
+- Added live per-turn progress to the battle job and frontend. The existing
+  polling API now returns completed messages and the current stage, so users
+  can read the discussion while later agent calls run. Messages are labeled
+  provisional until the unchanged script's final number check completes.
+- Replaced the frontend's fixed debate, fixed scores, and prewritten verdict
+  with a backend job that uses a completed site-screening result. The app shows
+  the generated Sentinel/Catalyst conversation, bottom lines, full report, and
+  any numbers the script could not match to its inputs.
+- Source-linked claims from a completed research job in the same state are
+  included in the agents' briefing. Only unambiguous reported permanent jobs
+  and investment can populate the script's optional economic inputs; claims
+  without evidence or marked conflicting are excluded.
+- Added an adapter for the team's unchanged `dc_debate_agents.py` script. It
+  passes site-screening values and assumptions while keeping the state energy
+  proxy distinct from actual grid connection capacity. The deterministic
+  screening verdict remains incomplete because capacity, water rights, and
+  local noise law are not verified.
+- Configured the supplied model key in the local, Git-ignored `.env`; the key
+  is not in source control. Added LangChain dependencies and in-memory battle
+  jobs with queue limits. The browser can print or save the generated report
+  as PDF.
+- Verified a live model request, a normal seven-message debate using sample
+  screening data, the frontend production build, and 109 Python tests. One
+  number in the sample debate was flagged as unverified, as intended. The full
+  map-to-screening-to-battle path remains to be checked interactively.
 
 ## 2026-10-25 — Free keyless web discovery
 

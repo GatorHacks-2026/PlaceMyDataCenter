@@ -8,4 +8,6 @@ pandas>=2
 requests>=2
 dataretrieval>=1
 python-dotenv>=1
+langchain-openai>=0.3,<2
+langchain-core>=0.3,<2
 -e ..

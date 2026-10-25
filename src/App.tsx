@@ -278,7 +278,8 @@ export default function App() {
         </div>
 
         <div className={activeView === 'battle' ? '' : 'hidden'}>
-          <AgenticBattlePanel projectName={projectName} location={placeName === 'Choose a location' ? null : placeName} />
+          <AgenticBattlePanel projectName={projectName} location={placeName === 'Choose a location' ? null : placeName}
+            screening={screeningResult} research={researchResult} onShowMap={() => setActiveView('map')} />
         </div>
 
         <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Site screening separates observed regional data from modeled assumptions; Playground comparisons are scenario estimates.</footer>

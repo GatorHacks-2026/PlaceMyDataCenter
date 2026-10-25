@@ -19,6 +19,7 @@ from app.place_geocode import router as place_geocode_router
 from app.research_jobs import router as research_jobs_router
 from app.area_boundary import router as area_boundary_router
 from app.site_screening import router as site_screening_router
+from app.agent_battle import router as agent_battle_router
 
 HOURS_PER_YEAR = 8760
 logger = logging.getLogger("uvicorn.error")
@@ -79,6 +80,7 @@ app.include_router(place_geocode_router)
 app.include_router(research_jobs_router)
 app.include_router(area_boundary_router)
 app.include_router(site_screening_router)
+app.include_router(agent_battle_router)
 
 
 @app.post("/api/estimate", response_model=EstimateResponse)

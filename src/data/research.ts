@@ -25,6 +25,7 @@ export interface ResearchClaim {
 }
 
 export interface ResearchResult {
+  research_job_id?: string
   schema_version: string
   status: 'complete' | 'partial' | 'ambiguous' | 'failed'
   location_input: string | null
@@ -142,5 +143,5 @@ export async function requestResearch(
   if (!result || typeof result !== 'object' || !('schema_version' in result) || !('status' in result)) {
     throw new Error('The backend returned an invalid research result.')
   }
-  return result as ResearchResult
+  return { ...(result as ResearchResult), research_job_id: queued.job_id }
 }
