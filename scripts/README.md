@@ -15,6 +15,9 @@ remains in `backend/app/`; the supplied prototype remains at
 `/Users/jaysuryaray/Downloads/input_extractor.py` until later steps integrate
 its reusable parts.
 
+Point 3 adds `identity.py`, which extracts location-matched project candidates
+from seed text and returns ambiguity when the input does not identify one site.
+
 From the repository root, after installing `backend/requirements-dev.txt`, run:
 
 ```sh

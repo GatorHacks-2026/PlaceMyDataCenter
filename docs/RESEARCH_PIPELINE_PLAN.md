@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1 and 2 implemented on `research-evidence-contract`; later points pending.
+**Status:** Points 1–3 implemented on `research-evidence-contract`; later points pending.
 
 ## Goal
 
@@ -142,6 +142,15 @@ part of this point.
 
 **Done when:** The Pine Island article selects Pine Island without absorbing
 other Google projects or general grid claims.
+
+**Implementation:** `identity.py` extracts conservative project candidates
+from seed sentences, records explicit developer/operator/alias/date details,
+and compares each candidate with the user's location. A city match selects
+one facility; multiple same-state candidates remain ambiguous for a state-only
+input. Generic grid discussion and location mismatches do not become a chosen
+project. This is a deterministic first pass; more varied article language may
+need structured extraction in point 5. `scripts/tests/test_identity.py` covers
+Pine Island, same-company different-site mentions, ambiguity, and mismatch.
 
 ### 4. Web discovery and source collection
 

@@ -115,11 +115,13 @@ class Location(StrictModel):
 
 class ProjectIdentity(StrictModel):
     name: str | None = None
+    name_is_reported: bool = False
     developer: str | None = None
     operator: str | None = None
     aliases: list[str] = Field(default_factory=list)
     location: Location = Field(default_factory=Location)
     phase: ProjectPhase = ProjectPhase.UNKNOWN
+    announced_on: date | None = None
 
 
 class SourceRecord(StrictModel):
