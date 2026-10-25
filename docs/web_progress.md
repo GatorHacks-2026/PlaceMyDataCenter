@@ -10,6 +10,13 @@ Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
 
+## 2026-10-25 — Screening-grounded Playground
+
+- Moved Playground beneath the satellite site screening and removed the separate demo Playground view.
+- Playground waits for a completed screening, then uses its facility IT capacity, utilization, PUE, WUE, and available grid emissions factor as the baseline for backend scenario comparisons.
+- Alternative capacity, utilization, PUE, WUE, and illustrative cooling presets compare modeled annual facility electricity, water consumption, and grid electricity carbon. Alternative average demand and peak water need are also shown beside the screened EIA proxy and assumed USGS flow threshold. These observations remain fixed context, not site-specific supply or local impact measurements.
+- Changing the map inputs or pins clears the previous screening and Playground comparison. The fixed distance rings retain their distance-only meaning.
+
 ## 2026-10-25 — USGS and modeled noise map overlays
 
 - Preserved latitude and longitude for analyzed USGS gauges in the water

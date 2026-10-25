@@ -63,11 +63,12 @@ export interface ScenarioResult {
   assumptions: ScenarioInput
 }
 
-export async function requestScenario(input: ScenarioInput): Promise<ScenarioResult> {
+export async function requestScenario(input: ScenarioInput, signal?: AbortSignal): Promise<ScenarioResult> {
   const response = await fetch('/api/research/scenario', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
+    signal,
   })
   if (!response.ok) throw new Error(`Scenario calculation failed (HTTP ${response.status}).`)
   return response.json() as Promise<ScenarioResult>
