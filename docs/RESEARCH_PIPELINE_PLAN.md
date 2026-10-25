@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–7 implemented and checked offline; live Brave/Gemini research evaluation in point 8 remains pending.
+**Status:** Points 1–7 implemented; point 8 offline evaluation complete and live provider evaluation pending.
 
 ## Goal
 
@@ -262,6 +262,15 @@ Live article fetching and provider quality remain point 8 checks.
 available, reports its research coverage and limitations, and passes the
 offline regression suite.
 
+**Offline evaluation:** `scripts/tests/test_pipeline.py` covers Pine Island,
+a synthetic Virginia project, provider outage, and inaccessible article. The
+rest of the test suite covers duplicate and unrelated sources, conflicts, and
+scanned PDFs. All 65 Python tests and the frontend build pass. A direct local
+run with the supplied CNBC URL returned `partial` because the hostname could
+not be resolved here and the Brave key was absent. The Gemini key is also
+absent. See `docs/RESEARCH_EVALUATION.md` for the evaluation record and live
+acceptance tasks. Point 8 is therefore not yet fully accepted.
+
 ## Decisions before their corresponding implementation point
 
 - Select the search provider and acceptable per-investigation cost/latency
@@ -273,5 +282,5 @@ offline regression suite.
 
 ## Next action
 
-Run the point 8 end-to-end evaluation, document observed coverage and any
-remaining live-service limitations, and keep the regression suite green.
+Run the documented live provider evaluation from an environment with API keys
+and source access; inspect coverage and claim attribution before merging.

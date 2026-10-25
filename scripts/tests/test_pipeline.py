@@ -6,6 +6,7 @@ from scripts.ecocompute_research.intake import IntakeRequest
 from scripts.ecocompute_research.models import ResearchStatus
 from scripts.ecocompute_research.pipeline import ResearchConfig, run_research
 from scripts.ecocompute_research.url_fetch import FetchedDocument
+from scripts.ecocompute_research.url_fetch import FetchError
 
 
 class FakeProvider:
@@ -70,3 +71,54 @@ def test_unavailable_search_is_partial_even_when_article_has_a_fact():
     assert result.status == ResearchStatus.PARTIAL
     assert len(result.sources) == 1
     assert any("provider_error" in note for note in result.limitations)
+
+
+def test_second_state_project_keeps_unrelated_search_result_out():
+    class MixedProvider:
+        def search(self, query, *, count):
+            return [
+                SearchHit(title="Acme data center in Ashburn, Virginia",
+                          url="https://example.com/ashburn",
+                          description="Acme data center in Ashburn, VA"),
+                SearchHit(title="Acme data center in Pine Island, Minnesota",
+                          url="https://example.com/pine-island",
+                          description="Acme data center in Pine Island, MN"),
+            ]
+
+    def fetch(url):
+        if "ashburn" in url:
+            return FetchedDocument(url=url, media_type="text/plain", text=(
+                "Acme proposes a 250 MW data center in Ashburn, Virginia. "
+                "The Ashburn data center has a planned 250 MW facility capacity."
+            ))
+        raise AssertionError("Unrelated location should not be fetched")
+
+    result = run_research(
+        IntakeRequest(mode="text", location="Ashburn, VA",
+                      article_text="Acme proposes a 250 MW data center in Ashburn, Virginia."),
+        provider=MixedProvider(), fetcher=fetch,
+        gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert result.project.location.state == "VA"
+    assert len(result.sources) == 2
+    assert all("pine-island" not in str(source.url) for source in result.sources)
+    assert all(claim.value != 780 for claim in result.claims)
+
+
+def test_inaccessible_article_returns_honest_candidate_lead():
+    def inaccessible(url):
+        raise FetchError("access_denied", "The article could not be accessed")
+
+    result = run_research(
+        IntakeRequest(mode="url", location="Pine Island, MN",
+                      article_url="https://example.com/blocked-article"),
+        provider=FakeProvider(), fetcher=inaccessible,
+        config=ResearchConfig(max_queries=1),
+    )
+    assert result.status == ResearchStatus.AMBIGUOUS
+    assert result.project is None
+    assert result.sources == []
+    assert result.claims == []
+    assert len(result.candidates) == 1
+    assert any("could not be accessed" in note for note in result.limitations)
