@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–3 implemented; point 4 code and offline checks implemented, live provider check pending.
+**Status:** Points 1–3 implemented; points 4–5 code and offline checks implemented, live provider checks pending.
 
 ## Goal
 
@@ -193,6 +193,18 @@ acceptance check. Search snippets are leads, not verified evidence.
 
 **Done when:** The Pine Island fixture never treats 200, 300, 1,400, or 1,900
 MW as the data center's 780 MW capacity; unsupported fields remain unknown.
+
+**Implementation:** `facts.py` provides a deliberately narrow regex fallback
+for explicitly contextualized MW, daily water, investment, and permanent jobs.
+`gemini.py` sends one bounded source chunk at a time to a configurable Gemini
+model, requests JSON, and rejects claims whose excerpt is absent from the
+source or whose MW value/subject contradicts its excerpt. `fact_extractor.py`
+uses the fallback when Gemini is unavailable. Offline tests cover Pine Island
+MW separation, multi-project articles, a model misclassification, and model
+failure. The model adapter follows the [Gemini structured output reference](https://ai.google.dev/gemini-api/docs/structured-output?lang=web).
+No Gemini key is available in this checkout, so live extraction quality has
+not been assessed. The deterministic fallback does not claim comprehensive
+environmental or tariff extraction.
 
 ### 6. Reconciliation, estimates, and report
 

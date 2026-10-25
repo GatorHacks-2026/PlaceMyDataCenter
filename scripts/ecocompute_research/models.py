@@ -76,6 +76,10 @@ class ClaimSubject(StrEnum):
     SOLAR_GENERATION = "solar_generation"
     BATTERY_STORAGE = "battery_storage"
     GRID_CONNECTION = "grid_connection"
+    GRID_SYSTEM = "grid_system"
+    WATER_SYSTEM = "water_system"
+    ENVIRONMENT = "environment"
+    FINANCIAL = "financial"
     COMMUNITY = "community"
     OTHER = "other"
 

@@ -23,6 +23,11 @@ the environment to use the Brave Web Search API. Without it, discovery returns
 a partial result with no invented URLs. Search and collection limits are
 arguments to their entry functions. A live provider check still requires a key.
 
+Point 5 adds conservative regex extraction (`facts.py`) and optional Gemini
+extraction (`gemini.py`), coordinated by `fact_extractor.py`. Set
+`GEMINI_API_KEY` to enable it; `GEMINI_MODEL` selects the model and defaults to
+`gemini-3.8-flash`. Each retained claim cites an excerpt from its source.
+
 From the repository root, after installing `backend/requirements-dev.txt`, run:
 
 ```sh
