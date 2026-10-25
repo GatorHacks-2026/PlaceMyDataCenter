@@ -1,59 +1,72 @@
 # Data Center Lens
 
-A data center sustainability simulator. The React dashboard shows modeled annual water, electricity, and carbon estimates for a selected US location, capacity, utilization, and cooling type. Regional grid factors and drought labels are demo assumptions, not measured site data.
+Data Center Lens helps residents investigate a proposed data center. It reviews supplied articles and public sources, maps an approximate project area, lets you place a proposed facility and home pin, and runs a preliminary site screening. Its figures are exploratory estimates, not measured impacts or permitting decisions.
 
-## Run locally
+## Quick start
 
-Start the API in one terminal (Python 3.10+):
-
-```sh
-cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/uvicorn app.main:app --reload --port 8000
-```
-
-For scanned PDF OCR on macOS, install the local tools with `brew install poppler tesseract`.
-
-Start the frontend in another terminal (Node 22+):
+Run these commands **from the repository root** on macOS, Linux, or WSL. You need Python 3.10+, Node.js 22+, npm, and `make`.
 
 ```sh
-npm install
-npm run dev
+make setup
+make dev
 ```
 
-Open <http://localhost:5173/>. Vite proxies `/api` to the local FastAPI server. For a production build, `npm run build` creates `dist/`; deployment must route `/api` to the backend as well.
+Open [http://127.0.0.1:5173/](http://127.0.0.1:5173/). The API documentation is at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). Press **Ctrl+C** in the `make dev` terminal to stop both servers. Run `make setup` again when dependencies change.
 
-## Check the project
+The basic research flow can use Tavily's keyless search, subject to its free rate limits. You do **not** need an API key just to start the app. Some features need optional keys; see below.
+
+### If you prefer two terminals
+
+After `make setup`, run `make backend` in one terminal and `make frontend` in another. Vite sends `/api` requests to the backend on port 8000. The website runs on port 5173.
+
+### Without Make
 
 ```sh
-npm test
-npm run build
-PYTHONPATH=backend backend/.venv/bin/python -m pytest scripts/tests backend/tests -q
+python3 -m venv backend/.venv
+(cd backend && .venv/bin/python -m pip install -r requirements-dev.txt)
+npm ci
 ```
 
-The backend exposes `POST /api/estimate`, synchronous `POST /api/research` and `POST /api/research/pdf`, background `POST /api/research/jobs` and `POST /api/research/jobs/pdf`, `GET /api/research/jobs/{id}`, and `POST /api/research/scenario`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel uses background jobs and accepts an article URL, pasted text, PDF, or location only. With a seed article or document, users may provide up to five additional public source URLs. For article URLs, the backend also checks relevant links in the article. Scanned PDFs need `pdftoppm` (Poppler) and `tesseract` installed on the backend host. Search defaults to Tavily's free keyless Search API; it requires no account or key but has rate limits. A free `TAVILY_API_KEY` raises those limits. Search results are only candidate leads until the backend fetches and reviews a page. City or ZIP location-only searches can automatically investigate one identified candidate; broad searches return candidate articles to choose from. Create a `.env` file at the repository root for private optional keys; the backend loads it on startup and Git ignores it. Set `GEMINI_API_KEY` for model extraction, `EIA_API_KEY` for electricity screening, `LLM_API_KEY` for Agentic Battle, and optionally `API_USGS_PAT` for USGS access. Brave and Gemini search remain optional alternates via `RESEARCH_SEARCH_PROVIDER=brave` or `gemini`. Without usable search, results show partial coverage even when supplied or linked sources are reviewed.
+Then run `PYTHONPATH=backend backend/.venv/bin/python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000` from the repository root. In a second terminal, run `npm run dev -- --host 127.0.0.1`.
 
-Research claims and sources appear separately from the simulator's modeled estimates. A project-specific scenario needs explicit IT load and efficiency inputs; carbon stays unknown without a supplied grid factor. The map's ZIP search uses Zippopotam.us from the browser; research intake also resolves ZIPs through that service on the backend to find city/state search context while retaining ZIP-area precision. City research uses the public Nominatim service for an approximate city marker, with a backend cache and one-request-per-second limit. State-only results show no facility marker. The public Nominatim service has a [usage policy](https://operations.osmfoundation.org/policies/nominatim/) and must be replaced or self-hosted for heavier use. Background jobs are in-memory and need a persistent queue for multi-worker deployment. See [research plan](docs/RESEARCH_PIPELINE_PLAN.md) and [evaluation](docs/RESEARCH_EVALUATION.md) for scope and current live-service limitations.
+## Optional API keys
 
-The map defaults to USGS satellite/aerial imagery and can switch to a street map. A research result with a project-associated ZIP centers the map on that approximate ZIP area; city and state results use broader approximate centers. None of these area centers becomes a facility point. Click **Place proposed facility** and choose a point on the map, then click **Place my home** and choose another point. The panel reports their straight-line distance and a fixed 0–1, 1–3, 3–5, or beyond-5-mile band. The 1-, 3-, and 5-mile circles are distance guides, not measured environmental impacts or verified facility boundaries. Placed points are cleared when a new research result or map location is selected and are never sent to the research pipeline.
+Create a **root-level `.env`** file only for the features you want to enable. Git ignores this file. `.env.example` lists the supported variable names; never put real keys in that example or commit them.
 
-The Playground now appears below the satellite site screening. After a screening run, it takes that facility pin, IT capacity, utilization, PUE, WUE, and available grid emissions factor as its baseline. Users can compare another capacity or cooling assumption through the backend scenario endpoint. The comparison also places alternative average demand and peak water need beside the screening's fixed EIA energy proxy and assumed USGS flow threshold. Those regional readings are not site-specific utility or water supplies. The scenario results are modeled facility electricity, water consumption, and grid electricity carbon, not measured local impacts. Cooling presets are illustrative. Changing the map's IT-capacity input makes it hypothetical and clears the previous screening and comparison until screening runs again. The fixed distance rings do not change. The research location field in the header still accepts a ZIP or city/state.
+| Variable | What it enables |
+| --- | --- |
+| `LLM_API_KEY` | Sentinel and Catalyst's Agentic Battle. Without it, the battle cannot start. |
+| `EIA_API_KEY` | The EIA electricity data used by site screening. Without it, that layer may be incomplete. |
+| `GEMINI_API_KEY` | Optional AI-assisted fact extraction. |
+| `API_USGS_PAT` | Optional USGS access; the public water lookup can run without it. |
+| `TAVILY_API_KEY` | Higher Tavily search limits; keyless search is the default. |
 
-After research, the satellite map draws the best available approximate area outline: a Census ZIP Code Tabulation Area (ZCTA), a city polygon from the existing geocoder, or a Census state outline. A search ZIP without a project-associated ZIP is explicitly labeled as an unverified search area. A ZCTA is only an approximation of a USPS ZIP area, and some ZIPs have no matching polygon. The user places the facility pin inside the researched area when possible; the pin, rather than the area center, supplies site coordinates for **Run site screening**. A home pin adds a distance-based noise estimate. Only an unambiguous sourced IT-capacity claim prefills the screening size; otherwise the user confirms a hypothetical IT capacity. Screening jobs call the standalone `Data_Center_backend.py` model via FastAPI and show each layer's source, assumptions, and limitations. Configure `EIA_API_KEY` for the EIA electricity layer; the public USGS water lookup can run without `API_USGS_PAT`. The screening flags are exploratory indicators, not permitting decisions: state generation minus sales is not grid interconnection capacity, a nearby river is not a verified water supply, and noise equipment levels are assumed.
+Brave search is an optional alternate provider. To use it, set `RESEARCH_SEARCH_PROVIDER=brave` and `BRAVE_SEARCH_API_KEY` in `.env`. Restart the backend after changing `.env`.
 
-After screening, the satellite map draws a dashed cyan outline for the USGS gauge search radius, markers for gauges with coordinates, and a dashed purple contour for the modeled distance to an assumed night noise threshold. The yellow gauge marker identifies the gauge used in the water comparison; cyan markers show the other analyzed gauges. **View USGS search area** zooms to that outline. Gauge markers and their flow values do not identify a facility water source. The noise contour uses assumed equipment levels and a comparison threshold; it is not measured sound or a legal boundary. The fixed 1-, 3-, and 5-mile guides remain separate.
+For scanned PDF text extraction, install Poppler and Tesseract on the backend machine. On macOS: `brew install poppler tesseract`. Text-based PDFs do not require OCR.
 
-The **Agentic Battle** tab becomes available after a completed site screening. Its background job reuses that server-side screening result and passes the values, assumptions, and limitations to the team's unchanged `dc_debate_agents.py` script. If a completed research job for the same state is available, source-linked project claims also enter the briefing; unambiguous reported permanent jobs and investment can supply the script's optional economic inputs. Sentinel and Catalyst hold a seven-message conversation using the configured OpenAI-compatible endpoint. Each completed message appears in the UI through the existing job-polling API while the next message is being written. After the conversation, the UI shows their bottom lines, script-generated report, and any numbers the script could not match to the inputs. Messages are provisional until that final number check. The report can be printed or saved as PDF in the browser. Agent claims remain AI-generated, and the screening verdict stays incomplete because utility connection capacity, water rights, and local noise law are not established by the available data. Battle jobs are in memory and need a persistent queue for multi-worker deployment.
+## Try the app
 
-## See API requests and results
+1. Enter a ZIP code, city, or state, then select **Explore proposal**.
+2. Add an article URL, pasted text, or PDF. The research view shows reviewed sources, reported claims, and missing information. Location-only searches can discover candidate articles, but broad locations may need you to choose a specific project.
+3. Open **Satellite map**. The outlined ZIP, city, or state is an approximate research area. Click **Place proposed facility** to mark a point; this is never assumed from a ZIP center. Optionally place your home to see straight-line distance.
+4. Confirm an IT capacity and select **Run site screening**. If no unambiguous IT capacity was reported, use a clearly labeled hypothetical value.
+5. After screening, open **Agentic Battle**. It needs `LLM_API_KEY` and shows the agents' messages as they arrive. You can print the final report as a PDF.
 
-The backend terminal logs each estimate's validated JSON request and JSON response. Uvicorn also logs the method, path, and HTTP status. To keep a local copy while you test, start it from `backend/` with:
+The 1-, 3-, and 5-mile map rings are distance guides, not risk zones. Regional electricity and water data, assumed equipment noise, and modeled emissions do not establish a facility's actual utility connection, water source, legal noise compliance, or local health effects.
+
+## Checks and troubleshooting
 
 ```sh
-.venv/bin/uvicorn app.main:app --reload --port 8000 2>&1 | tee -a api.log
+make check       # frontend tests, production build, backend tests
+make help        # list commands
 ```
 
-Then change a setting and click **Analyze**. Open `backend/api.log` or run `tail -f api.log` from `backend/`. The log file is ignored by Git. Stop the server with Ctrl+C when done.
+- **`npm` or `node` not found:** install Node.js 22+ and reopen your terminal.
+- **`python3` not found or too old:** install Python 3.10+; you can choose a specific executable with `make setup PYTHON=python3.12`.
+- **Research or screening requests fail:** make sure the backend is running at [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs). Read the backend terminal for request logs and errors.
+- **Port 5173 or 8000 is already in use:** stop the older frontend or backend process before running `make dev` again.
+- **Agentic Battle says the key is missing:** put `LLM_API_KEY` in the root `.env`, then restart the backend.
+- **Satellite imagery is blank:** try the map's **Street** option; raster tiles require network access.
 
-See [progress](docs/PROGRESS.md), [roadmap](docs/ROADMAP.md), and [technical notes](docs/TECHNICAL.md).
+See [technical notes](docs/TECHNICAL.md), [research pipeline plan](docs/RESEARCH_PIPELINE_PLAN.md), and [web progress](docs/web_progress.md) for implementation details and current limitations.
