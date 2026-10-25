@@ -20,9 +20,10 @@ from .estimates import assess_scale
 from .fact_extractor import extract_facts
 from .gemini import GeminiFactExtractor
 from .grounded_search import GeminiGroundedSearchProvider
+from .tavily_search import TavilySearchProvider
 from .identity import IdentificationStatus, identify_project
 from .intake import IntakeRequest, read_input
-from .models import Location, ProjectIdentity, ResearchResult, ResearchStatus, SourceRecord, SourceType, StrictModel
+from .models import Location, ProjectIdentity, ResearchResult, ResearchStatus, SearchLead, SourceRecord, SourceType, StrictModel
 from .reconciliation import reconcile_claims
 from .report import build_summary, find_missing_fields
 from .url_fetch import FetchedDocument, fetch_url
@@ -78,9 +79,11 @@ def run_research(
                               limitations=[identity.explanation, *limitations],
                               **location_context)
 
-    provider = provider or (GeminiGroundedSearchProvider()
-                            if os.environ.get("RESEARCH_SEARCH_PROVIDER") == "gemini"
-                            else BraveSearchProvider())
+    search_provider = os.environ.get("RESEARCH_SEARCH_PROVIDER", "tavily").lower()
+    provider = provider or (GeminiGroundedSearchProvider() if search_provider == "gemini" else
+                            BraveSearchProvider() if search_provider == "brave" else TavilySearchProvider())
+    if isinstance(provider, TavilySearchProvider) and not provider.api_key and config.max_queries > 2:
+        config = config.model_copy(update={"max_queries": 2})
     if identity.status != IdentificationStatus.SELECTED:
         location_project = ProjectIdentity(location=intake.location)
         leads = discover_sources(location_project, provider,
@@ -96,12 +99,43 @@ def run_research(
                 candidates[key] = project
         search_unavailable = (request.mode == "manual_location" and not leads.hits and
                               any("not_configured" in warning for warning in leads.warnings))
+        search_leads = [SearchLead(title=hit.title, url=hit.url, description=hit.description)
+                        for hit in leads.hits[:8]
+                        if urlsplit(hit.url).scheme in {"http", "https"} and urlsplit(hit.url).hostname]
+        # A city or resolved ZIP can identify one project from search leads.
+        # Fetch the article and pass it through the normal evidence pipeline;
+        # a snippet alone never becomes a claim. Broad state searches still
+        # require the user to choose a source.
+        if request.mode == "manual_location" and intake.location.city and len(candidates) == 1:
+            candidate = next(iter(candidates.values()))
+            if candidate.location.city and candidate.location.state:
+                for hit in leads.hits:
+                    found = identify_project(f"{hit.title}. {hit.description}", intake.location)
+                    if (found.status != IdentificationStatus.SELECTED or not found.selected or
+                            (candidate.developer and (found.selected.developer or "").casefold()
+                             != candidate.developer.casefold())):
+                        continue
+                    class CachedLeadsProvider:
+                        def search(self, query: str, *, count: int) -> list[SearchHit]:
+                            return leads.hits[:count]
+                    researched = run_research(
+                        IntakeRequest(mode="url", location=request.location, article_url=hit.url),
+                        provider=CachedLeadsProvider(), fetcher=fetcher, gemini=gemini,
+                        config=config, zip_resolver=zip_resolver,
+                    )
+                    if (researched.project and researched.sources and
+                            (not candidate.developer or (researched.project.developer or "").casefold()
+                             == candidate.developer.casefold())):
+                        researched.limitations.append(
+                            "The starting article was found by web search from a location-only input.")
+                        return researched
+                    break
         return ResearchResult(
             status=(ResearchStatus.AMBIGUOUS if candidates else
                     ResearchStatus.FAILED if search_unavailable else ResearchStatus.PARTIAL),
-            candidates=list(candidates.values()),
+            candidates=list(candidates.values()), search_leads=search_leads,
             limitations=[*(
-                ["Location-only research needs a configured web-search provider. Add an article URL, pasted text, or PDF to research this project now."]
+                ["Web search is unavailable. Add an article URL, pasted text, or PDF to research this project now."]
                 if search_unavailable else [identity.explanation]
             ), *limitations, *leads.warnings,
                          "Search snippets are candidate leads, not reviewed project evidence."],

@@ -220,12 +220,12 @@ export default function App() {
               const claim = uniqueItCapacityClaim(research)
               changeScreeningCapacity(claim && typeof claim.value === 'number' ? claim.value : 100,
                 claim ? 'reported_it' : 'hypothetical', Boolean(claim))
-              if (research) {
+              if (research?.project) {
                 void handleResearchResult(research)
                 setIntakeOpen(false)
                 setActiveView('audit')
                 window.requestAnimationFrame(() => document.getElementById('audit-view')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-              } else {
+              } else if (!research) {
                 mapRequestRef.current += 1
                 setResearchArea(null)
                 setResearchViewCenter(null)

@@ -39,7 +39,8 @@ def _source_type(url: str, project: ProjectIdentity) -> SourceType:
     host = urlsplit(url).hostname or ""
     if host.endswith(".gov"):
         return SourceType.GOVERNMENT
-    company = (project.developer or "").split()[0].casefold()
+    developer_words = (project.developer or "").split()
+    company = developer_words[0].casefold() if developer_words else ""
     if company and company in host.casefold():
         return SourceType.COMPANY
     return SourceType.OTHER

@@ -33,7 +33,7 @@ export default function AuditPanel({ result, onStartResearch }: Props) {
   const sources = new Map(result.sources.map(source => [source.id, source]))
   const publicSourceCount = result.sources.filter(source => source.url).length
   const suppliedSourceCount = result.sources.length - publicSourceCount
-  const searchUnavailable = result.limitations.some(item => item.includes('BRAVE_SEARCH_API_KEY is not configured'))
+  const searchUnavailable = result.limitations.some(item => /not_configured:|quota_exhausted:|request_failed:|provider_error:/.test(item))
   const questions = result.missing_fields.map(item => item.town_hall_question).filter((question): question is string => Boolean(question))
   const unresolved = result.conflicts.filter(item => !item.resolved)
   const copyQuestions = async () => {
@@ -57,7 +57,7 @@ export default function AuditPanel({ result, onStartResearch }: Props) {
           </div>
           <span className="rounded-full border border-teal-accent/30 bg-teal-accent/10 px-3 py-1 text-xs font-semibold text-teal-accent">{publicSourceCount} public URL{publicSourceCount === 1 ? '' : 's'} · {suppliedSourceCount} supplied input{suppliedSourceCount === 1 ? '' : 's'}</span>
         </div>
-        {publicSourceCount === 0 && <p role="status" className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">No public source was reviewed. {suppliedSourceCount ? 'This audit is based only on the text or PDF you supplied; its claims and information gaps are not independently verified.' : 'No project evidence was available for this audit.'}{searchUnavailable ? ' Web discovery is unavailable because the Brave search key is not configured on the backend.' : ''}</p>}
+        {publicSourceCount === 0 && <p role="status" className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">No public source was reviewed. {suppliedSourceCount ? 'This audit is based only on the text or PDF you supplied; its claims and information gaps are not independently verified.' : 'No project evidence was available for this audit.'}{searchUnavailable ? ' Web discovery was unavailable; see coverage details.' : ''}</p>}
         <p className="mt-3 text-xs text-slate-400">“Not found” means absent from the reviewed sources. It does not mean the developer has never disclosed it. Map locations may represent a ZIP or city center rather than a facility parcel.</p>
         {result.candidates.length > 0 && <div className="mt-3 text-xs text-slate-400">Possible projects: {result.candidates.map(item => item.name || item.developer || 'Unnamed project').join(' · ')}</div>}
       </div>

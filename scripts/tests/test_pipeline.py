@@ -55,6 +55,26 @@ def test_location_only_returns_candidate_leads_without_fabricated_research():
     assert result.claims == []
     assert result.sources == []
     assert len(result.candidates) == 1
+    assert str(result.search_leads[0].url) == "https://example.com/google-pine-island"
+
+
+def test_city_only_search_fetches_one_candidate_before_extracting_claims():
+    fetched = []
+    def fetch(url):
+        fetched.append(url)
+        return FetchedDocument(url=url, media_type="text/plain", text=(
+            "Google plans a 780-megawatt data center in Pine Island, Minnesota."
+        ))
+
+    result = run_research(
+        IntakeRequest(mode="manual_location", location="Pine Island, MN"),
+        provider=FakeProvider(), fetcher=fetch, gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert fetched == ["https://example.com/google-pine-island"]
+    assert result.project and result.project.developer == "Google"
+    assert len(result.sources) == 1
+    assert any(claim.field == "electricity.capacity_mw" for claim in result.claims)
 
 
 def test_unavailable_search_is_partial_even_when_article_has_a_fact():
