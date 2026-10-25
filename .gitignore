@@ -27,7 +27,6 @@ Thumbs.db
 # Env / secrets
 .env
 .env.*
-!.env.example
 
 # Vite / TS cache
 *.local

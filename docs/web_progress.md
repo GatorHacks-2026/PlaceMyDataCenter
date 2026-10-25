@@ -10,6 +10,10 @@ Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
 
+## 2026-10-25 — One optional local environment file
+
+- Removed the tracked `.env.example` template. Keyless research needs no environment file; private EIA, USGS, Gemini, or higher-limit search keys can be put in a single ignored root `.env` file when needed. README lists the supported variable names.
+
 ## 2026-10-25 — Free keyless web discovery
 
 - Added Tavily Search as the default source-lead provider using its free keyless API. A private Tavily key can raise limits; Brave and Gemini remain optional providers.
