@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Leaf, MapPinned, Search } from 'lucide-react'
+import { FileText, Leaf, MapPinned, Search, Swords } from 'lucide-react'
 import MapPanel, { type ResearchArea } from './components/MapPanel'
 import ResearchPanel from './components/ResearchPanel'
 import AuditPanel from './components/AuditPanel'
+import AgenticBattlePanel from './components/AgenticBattlePanel'
 import ScreeningPlayground from './components/ScreeningPlayground'
 import ErrorBoundary from './components/ErrorBoundary'
 import { LOCATIONS, type Location } from './data/demo'
@@ -14,7 +15,7 @@ import SiteScreeningPanel from './components/SiteScreeningPanel'
 import { uniqueItCapacityClaim, type SiteScreeningResult } from './data/siteScreening'
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'map' | 'audit'>('map')
+  const [activeView, setActiveView] = useState<'map' | 'audit' | 'battle'>('map')
   const [intakeOpen, setIntakeOpen] = useState(false)
   const [researchResult, setResearchResult] = useState<ResearchResult | null>(null)
   const [location, setLocation] = useState<Location>(LOCATIONS[0])
@@ -182,6 +183,7 @@ export default function App() {
   const nav = [
     { key: 'map', label: 'Satellite map', icon: MapPinned },
     { key: 'audit', label: 'Proposal audit', icon: FileText },
+    { key: 'battle', label: 'Agentic Battle', icon: Swords },
   ] as const
   const projectName = researchResult?.project?.name || researchResult?.project?.developer
   const placeName = researchResult?.project?.location.city
@@ -273,6 +275,10 @@ export default function App() {
 
         <div id="audit-view" className={activeView === 'audit' ? '' : 'hidden'}>
           <AuditPanel result={researchResult} onStartResearch={openIntake} />
+        </div>
+
+        <div className={activeView === 'battle' ? '' : 'hidden'}>
+          <AgenticBattlePanel projectName={projectName} location={placeName === 'Choose a location' ? null : placeName} />
         </div>
 
         <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Site screening separates observed regional data from modeled assumptions; Playground comparisons are scenario estimates.</footer>
