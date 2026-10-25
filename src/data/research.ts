@@ -40,6 +40,12 @@ export interface ResearchResult {
   limitations: string[]
 }
 
+/** The user's search ZIP is not automatically the selected project's ZIP. */
+export function projectZipFromResult(result: ResearchResult): string | null {
+  const zip = result.project?.location.zip_code
+  return zip && /^\d{5}$/.test(zip) ? zip : null
+}
+
 export interface ScenarioInput {
   it_capacity_mw: number
   utilization: number

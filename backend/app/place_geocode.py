@@ -22,6 +22,7 @@ class AreaPoint(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     precision: str
+    boundary: dict | None = None
     attribution: str = "© OpenStreetMap contributors"
 
 
@@ -47,7 +48,7 @@ def geocode_city(city: str | None = Query(default=None, min_length=2, max_length
                 "https://nominatim.openstreetmap.org/search",
                 params={**({"city": city} if city else {}), "state": state_name, "country": "United States",
                         "countrycodes": "us", "format": "jsonv2", "addressdetails": 1,
-                        "limit": 3},
+                        "limit": 3, "polygon_geojson": 1, "polygon_threshold": 0.001},
                 headers={"User-Agent": "EcoComputeAI/0.1 (local research map; contact: github.com/PlaceMyDataCenter)",
                          "Accept-Language": "en"}, timeout=10,
             )
@@ -61,7 +62,9 @@ def geocode_city(city: str | None = Query(default=None, min_length=2, max_length
             city_matches = bool(city and name and name.casefold() == city.casefold())
             state_matches = bool(not city and address.get("state", "").casefold() == state_name.casefold())
             if address.get("country_code") == "us" and (city_matches or state_matches):
-                point = AreaPoint(city=city, state=state,
+                geometry = place.get("geojson")
+                boundary = geometry if isinstance(geometry, dict) and geometry.get("type") in {"Polygon", "MultiPolygon"} else None
+                point = AreaPoint(city=city, state=state, boundary=boundary,
                                   latitude=float(place["lat"]), longitude=float(place["lon"]),
                                   precision="city" if city else "state")
                 _cache[key] = point

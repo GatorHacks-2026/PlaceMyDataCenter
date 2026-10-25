@@ -12,7 +12,7 @@ const modes: { value: ResearchMode; label: string }[] = [
 interface Props {
   location: string
   onLocationChange: (value: string) => void
-  onResearchResult?: (result: ResearchResult) => void
+  onResearchResult?: (result: ResearchResult | null) => void
 }
 
 export default function ResearchPanel({ location, onLocationChange, onResearchResult }: Props) {
@@ -32,6 +32,7 @@ export default function ResearchPanel({ location, onLocationChange, onResearchRe
   const [scenario, setScenario] = useState<ScenarioResult | null>(null)
   const [scenarioError, setScenarioError] = useState<string | null>(null)
   const controller = useRef<AbortController | null>(null)
+  const previousLocation = useRef(location)
 
   useEffect(() => () => controller.current?.abort(), [])
 
@@ -47,7 +48,17 @@ export default function ResearchPanel({ location, onLocationChange, onResearchRe
     setItMw('')
     setWue('')
     setGridFactor('')
+    onResearchResult?.(null)
   }
+
+  // The compact header and this form share a location. Changing either one
+  // invalidates the prior audit, including results held inside this panel.
+  useEffect(() => {
+    if (previousLocation.current !== location) {
+      previousLocation.current = location
+      reset()
+    }
+  }, [location])
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()

@@ -1,17 +1,38 @@
 import { useEffect, useRef, useState } from 'react'
 import maplibregl from 'maplibre-gl'
+import type { Feature, FeatureCollection, MultiPolygon, Polygon } from 'geojson'
 import { MapPin, Info, Layers, RefreshCw } from 'lucide-react'
-import { type Location } from '../data/demo'
+import type { Location } from '../data/demo'
+import { distanceCircle, distanceMiles, proximityBand, type MapPoint } from '../data/geospatial'
+import type { SiteScreeningResult } from '../data/siteScreening'
+
+export interface ResearchArea {
+  point: MapPoint
+  label: string
+  precision: 'zip' | 'city' | 'state'
+  zipCode?: string
+  stateCode?: string
+  boundary?: Feature<Polygon | MultiPolygon> | null
+}
 
 interface MapPanelProps {
   locations: Location[]
   selectedId: string
+  researchResetKey?: number
   viewCenter?: { lat: number; lng: number; zoom: number } | null
+  researchArea?: ResearchArea | null
+  areaBoundary?: Feature<Polygon | MultiPolygon> | null
+  capacity: number
+  onCapacityChange: (capacity: number) => void
+  screeningResult?: SiteScreeningResult | null
+  onSitePointChange?: (point: MapPoint | null) => void
+  onHomePointChange?: (point: MapPoint | null) => void
   onSelect: (location: Location) => void
 }
 
-// Public demo raster style (no API key required).
-const MAP_STYLE: maplibregl.StyleSpecification = {
+type Basemap = 'satellite' | 'street'
+
+const STREET_STYLE: maplibregl.StyleSpecification = {
   version: 8,
   sources: {
     osm: {
@@ -22,6 +43,122 @@ const MAP_STYLE: maplibregl.StyleSpecification = {
     },
   },
   layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+}
+
+const SATELLITE_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    imagery: {
+      type: 'raster',
+      tiles: ['https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/tile/{z}/{y}/{x}'],
+      tileSize: 256,
+      attribution: 'USGS The National Map; USDA NAIP',
+    },
+  },
+  layers: [{ id: 'imagery', type: 'raster', source: 'imagery' }],
+}
+
+const MAP_STYLES = { satellite: SATELLITE_STYLE, street: STREET_STYLE }
+
+function guideData(site: MapPoint | null, home: MapPoint | null): FeatureCollection {
+  if (!site) return { type: 'FeatureCollection', features: [] }
+  const features: FeatureCollection['features'] = [5, 3, 1].map(radius => ({
+    type: 'Feature',
+    properties: { kind: 'ring', radius },
+    geometry: { type: 'Polygon', coordinates: [distanceCircle(site, radius)] },
+  }))
+  if (home) features.push({
+    type: 'Feature',
+    properties: { kind: 'connection' },
+    geometry: { type: 'LineString', coordinates: [[site.lng, site.lat], [home.lng, home.lat]] },
+  })
+  return { type: 'FeatureCollection', features }
+}
+
+function syncGuides(map: maplibregl.Map, site: MapPoint | null, home: MapPoint | null) {
+  if (!map.isStyleLoaded()) return
+  const data = guideData(site, home)
+  const source = map.getSource('distance-guides') as maplibregl.GeoJSONSource | undefined
+  if (source) {
+    source.setData(data)
+    return
+  }
+  map.addSource('distance-guides', { type: 'geojson', data })
+  map.addLayer({
+    id: 'distance-guide-fill', type: 'fill', source: 'distance-guides',
+    filter: ['==', ['get', 'kind'], 'ring'],
+    paint: {
+      'fill-color': ['match', ['get', 'radius'], 1, '#ef4444', 3, '#facc15', '#38bdf8'],
+      'fill-opacity': 0.08,
+    },
+  })
+  map.addLayer({
+    id: 'distance-guide-outline', type: 'line', source: 'distance-guides',
+    filter: ['==', ['get', 'kind'], 'ring'],
+    paint: {
+      'line-color': ['match', ['get', 'radius'], 1, '#ef4444', 3, '#facc15', '#38bdf8'],
+      'line-width': 2,
+    },
+  })
+  map.addLayer({
+    id: 'distance-guide-connection', type: 'line', source: 'distance-guides',
+    filter: ['==', ['get', 'kind'], 'connection'],
+    paint: { 'line-color': '#fff', 'line-width': 2, 'line-dasharray': [2, 2] },
+  })
+}
+
+function syncAreaBoundary(map: maplibregl.Map, boundary: Feature<Polygon | MultiPolygon> | null) {
+  if (!map.isStyleLoaded()) return
+  const data: FeatureCollection = { type: 'FeatureCollection', features: boundary ? [boundary] : [] }
+  const source = map.getSource('research-area') as maplibregl.GeoJSONSource | undefined
+  if (source) {
+    source.setData(data)
+    return
+  }
+  map.addSource('research-area', { type: 'geojson', data })
+  map.addLayer({ id: 'research-area-fill', type: 'fill', source: 'research-area',
+    paint: { 'fill-color': '#2dd4bf', 'fill-opacity': 0.08 } })
+  map.addLayer({ id: 'research-area-outline', type: 'line', source: 'research-area',
+    paint: { 'line-color': '#2dd4bf', 'line-width': 3, 'line-dasharray': [3, 2] } })
+}
+
+function syncScreeningOverlays(map: maplibregl.Map, site: MapPoint | null,
+  result: SiteScreeningResult | null) {
+  if (!map.isStyleLoaded()) return
+  const features: FeatureCollection['features'] = []
+  if (site && result && Math.abs(site.lat - result.site.lat) < 0.00001 &&
+      Math.abs(site.lng - result.site.lng) < 0.00001) {
+    const searchMiles = result.map_overlays?.usgs_search_radius_miles
+    if (searchMiles && searchMiles > 0) features.push({
+      type: 'Feature', properties: { kind: 'usgs-search' },
+      geometry: { type: 'Polygon', coordinates: [distanceCircle(site, searchMiles)] },
+    })
+    const noiseMiles = result.map_overlays?.noise_threshold?.radius_miles
+    if (noiseMiles && noiseMiles > 0) features.push({
+      type: 'Feature', properties: { kind: 'modeled-noise' },
+      geometry: { type: 'Polygon', coordinates: [distanceCircle(site, noiseMiles)] },
+    })
+  }
+  const data: FeatureCollection = { type: 'FeatureCollection', features }
+  const source = map.getSource('screening-overlays') as maplibregl.GeoJSONSource | undefined
+  if (source) { source.setData(data); return }
+  map.addSource('screening-overlays', { type: 'geojson', data })
+  map.addLayer({ id: 'modeled-noise-fill', type: 'fill', source: 'screening-overlays',
+    filter: ['==', ['get', 'kind'], 'modeled-noise'],
+    paint: { 'fill-color': '#c084fc', 'fill-opacity': 0.12 } })
+  map.addLayer({ id: 'modeled-noise-outline', type: 'line', source: 'screening-overlays',
+    filter: ['==', ['get', 'kind'], 'modeled-noise'],
+    paint: { 'line-color': '#c084fc', 'line-width': 3, 'line-dasharray': [1, 1.5] } })
+  map.addLayer({ id: 'usgs-search-outline', type: 'line', source: 'screening-overlays',
+    filter: ['==', ['get', 'kind'], 'usgs-search'],
+    paint: { 'line-color': '#22d3ee', 'line-width': 2, 'line-dasharray': [4, 3] } })
+}
+
+function pointMarker(label: string): HTMLDivElement {
+  const element = document.createElement('div')
+  element.textContent = label
+  element.style.cssText = 'font-size:24px;line-height:1;filter:drop-shadow(0 2px 3px #000);pointer-events:none;'
+  return element
 }
 
 // Safe WebGL feature check without throwing
@@ -67,12 +204,24 @@ function projectToSvg(lat: number, lng: number): { x: number; y: number } {
 export default function MapPanel({
   locations,
   selectedId,
+  researchResetKey,
   viewCenter,
+  researchArea,
+  areaBoundary,
+  capacity,
+  onCapacityChange,
+  screeningResult = null,
+  onSitePointChange,
+  onHomePointChange,
   onSelect,
 }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
+  const appliedBasemapRef = useRef<Basemap>('satellite')
+  const siteMarkerRef = useRef<maplibregl.Marker | null>(null)
+  const homeMarkerRef = useRef<maplibregl.Marker | null>(null)
   const markersRef = useRef<Record<string, maplibregl.Marker>>({})
+  const gaugeMarkersRef = useRef<maplibregl.Marker[]>([])
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
   // Keep latest locations available to the one-time init effect.
@@ -82,6 +231,46 @@ export default function MapPanel({
   const [webglSupported] = useState<boolean>(() => isWebGLAvailable())
   const [useFallback, setUseFallback] = useState<boolean>(() => !isWebGLAvailable())
   const [initError, setInitError] = useState<string | null>(null)
+  const [basemap, setBasemap] = useState<Basemap>('satellite')
+  const [sitePoint, setSitePoint] = useState<MapPoint | null>(null)
+  const [homePoint, setHomePoint] = useState<MapPoint | null>(null)
+  const [placementMode, setPlacementMode] = useState<'site' | 'home' | null>(null)
+  const [placementError, setPlacementError] = useState<string | null>(null)
+  const placementModeRef = useRef(placementMode)
+  const sitePointRef = useRef(sitePoint)
+  const homePointRef = useRef(homePoint)
+  const boundaryRef = useRef(areaBoundary ?? null)
+  const screeningRef = useRef(screeningResult)
+  const siteCallbackRef = useRef(onSitePointChange)
+  const homeCallbackRef = useRef(onHomePointChange)
+  placementModeRef.current = placementMode
+  sitePointRef.current = sitePoint
+  homePointRef.current = homePoint
+  boundaryRef.current = areaBoundary ?? null
+  screeningRef.current = screeningResult
+  siteCallbackRef.current = onSitePointChange
+  homeCallbackRef.current = onHomePointChange
+
+  useEffect(() => { siteCallbackRef.current?.(sitePoint) }, [sitePoint])
+  useEffect(() => { homeCallbackRef.current?.(homePoint) }, [homePoint])
+
+  // A new research result or selected location must not inherit an old, user-placed point.
+  useEffect(() => {
+    setSitePoint(null)
+    setHomePoint(null)
+    setPlacementMode(null)
+    setPlacementError(null)
+  }, [selectedId, researchResetKey])
+
+  const placeHome = (point: MapPoint) => {
+    if (sitePointRef.current && distanceMiles(sitePointRef.current, point) < 0.02) {
+      setPlacementError('Choose a home point at least 100 feet from the facility pin.')
+      return
+    }
+    setHomePoint(point)
+    setPlacementMode(null)
+    setPlacementError(null)
+  }
 
   // Initialize MapLibre GL only when WebGL is available and fallback is not forced
   useEffect(() => {
@@ -97,11 +286,12 @@ export default function MapPanel({
 
       const mapInstance = new maplibregl.Map({
         container: inner,
-        style: MAP_STYLE,
+        style: MAP_STYLES[basemap],
         center: [-98.5, 39.8],
         zoom: 3.2,
       })
       map = mapInstance
+      appliedBasemapRef.current = basemap
 
       mapInstance.on('error', (e) => {
         const msg = String(e?.error?.message || '')
@@ -114,6 +304,21 @@ export default function MapPanel({
 
       mapInstance.addControl(new maplibregl.NavigationControl(), 'top-right')
       mapRef.current = mapInstance
+      mapInstance.on('style.load', () => {
+        syncAreaBoundary(mapInstance, boundaryRef.current)
+        syncGuides(mapInstance, sitePointRef.current, homePointRef.current)
+        syncScreeningOverlays(mapInstance, sitePointRef.current, screeningRef.current)
+      })
+      mapInstance.on('click', event => {
+        if (placementModeRef.current === 'site') {
+          setSitePoint({ lng: event.lngLat.lng, lat: event.lngLat.lat })
+          setHomePoint(null)
+          setPlacementMode(null)
+          setPlacementError(null)
+        } else if (placementModeRef.current === 'home') {
+          placeHome({ lng: event.lngLat.lng, lat: event.lngLat.lat })
+        }
+      })
 
       // Markers are created/synced by the dedicated effect below (so searched
       // locations added after init also get markers).
@@ -140,8 +345,68 @@ export default function MapPanel({
       }
       mapRef.current = null
       markersRef.current = {}
+      gaugeMarkersRef.current = []
+      siteMarkerRef.current = null
+      homeMarkerRef.current = null
     }
   }, [useFallback])
+
+  // Changing the raster style preserves the map camera and HTML site markers.
+  useEffect(() => {
+    const map = mapRef.current
+    if (useFallback || !map || appliedBasemapRef.current === basemap) return
+    map.setStyle(MAP_STYLES[basemap])
+    appliedBasemapRef.current = basemap
+  }, [basemap, useFallback])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (useFallback || !map) return
+    map.getCanvas().style.cursor = placementMode ? 'crosshair' : ''
+  }, [placementMode, useFallback])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (useFallback || !map) return
+    siteMarkerRef.current?.remove()
+    homeMarkerRef.current?.remove()
+    siteMarkerRef.current = sitePoint
+      ? new maplibregl.Marker({ element: pointMarker('🏢'), anchor: 'bottom' })
+        .setLngLat([sitePoint.lng, sitePoint.lat]).addTo(map)
+      : null
+    homeMarkerRef.current = homePoint
+      ? new maplibregl.Marker({ element: pointMarker('🏠'), anchor: 'bottom' })
+        .setLngLat([homePoint.lng, homePoint.lat]).addTo(map)
+      : null
+    syncGuides(map, sitePoint, homePoint)
+  }, [sitePoint, homePoint, useFallback])
+
+  useEffect(() => {
+    if (!useFallback && mapRef.current) syncAreaBoundary(mapRef.current, areaBoundary ?? null)
+  }, [areaBoundary, useFallback])
+
+  useEffect(() => {
+    const map = mapRef.current
+    if (useFallback || !map) return
+    syncScreeningOverlays(map, sitePoint, screeningResult)
+    gaugeMarkersRef.current.forEach(marker => marker.remove())
+    gaugeMarkersRef.current = []
+    if (!sitePoint || !screeningResult ||
+        Math.abs(sitePoint.lat - screeningResult.site.lat) >= 0.00001 ||
+        Math.abs(sitePoint.lng - screeningResult.site.lng) >= 0.00001) return
+    for (const gauge of screeningResult.map_overlays?.water_gauges ?? []) {
+      const button = document.createElement('button')
+      button.type = 'button'
+      button.setAttribute('aria-label', `USGS gauge ${gauge.id}: ${gauge.name}`)
+      button.title = `${gauge.name} · ${gauge.distance_miles ?? '?'} miles from facility`
+      button.style.cssText = `width:20px;height:20px;border-radius:50%;border:2px solid white;background:${gauge.selected_for_comparison ? '#facc15' : '#22d3ee'};box-shadow:0 0 0 3px #082f49;cursor:pointer;`
+      button.addEventListener('click', event => event.stopPropagation())
+      const popup = new maplibregl.Popup({ offset: 16 }).setText(
+        `${gauge.name} (${gauge.id}) · ${gauge.distance_miles ?? '?'} miles away · dry flow ${gauge.dry_flow_mgd ?? '?'} MGD. Nearby gauge, not a confirmed facility water source.`)
+      gaugeMarkersRef.current.push(new maplibregl.Marker({ element: button })
+        .setLngLat([gauge.lng, gauge.lat]).setPopup(popup).addTo(map))
+    }
+  }, [screeningResult, sitePoint, useFallback])
 
   // Sync MapLibre markers to the current locations list (adds markers for
   // ZIP-searched sites that appear after init). Runs when the map exists.
@@ -155,10 +420,21 @@ export default function MapPanel({
       const el = document.createElement('button')
       el.setAttribute('aria-label', `Select ${loc.name}, ${loc.state}`)
       el.style.cssText =
-        'width:18px;height:18px;border-radius:9999px;border:2px solid #0a0f1c;cursor:pointer;'
+        'width:18px;height:18px;border-radius:9999px;border:2px solid #fff;cursor:pointer;'
       el.dataset.id = loc.id
       el.addEventListener('click', (e) => {
         e.stopPropagation()
+        if (placementModeRef.current === 'site') {
+          setSitePoint({ lng: loc.lng, lat: loc.lat })
+          setHomePoint(null)
+          setPlacementMode(null)
+          setPlacementError(null)
+          return
+        }
+        if (placementModeRef.current === 'home') {
+          placeHome({ lng: loc.lng, lat: loc.lat })
+          return
+        }
         onSelectRef.current(loc)
       })
       const marker = new maplibregl.Marker({ element: el })
@@ -186,6 +462,19 @@ export default function MapPanel({
     }
   }, [selectedId, viewCenter, useFallback])
 
+  useEffect(() => {
+    if (useFallback || !mapRef.current || !sitePoint) return
+    const map = mapRef.current
+    if (homePoint) {
+      const bounds = new maplibregl.LngLatBounds()
+        .extend([sitePoint.lng, sitePoint.lat])
+        .extend([homePoint.lng, homePoint.lat])
+      map.fitBounds(bounds, { padding: 70, maxZoom: 12, duration: 600 })
+    } else {
+      map.easeTo({ center: [sitePoint.lng, sitePoint.lat], zoom: Math.max(map.getZoom(), 11), duration: 600 })
+    }
+  }, [sitePoint, homePoint, useFallback])
+
   // Fallback 2D Vector Map when WebGL is unavailable or user chooses 2D mode
   if (useFallback) {
     return (
@@ -196,7 +485,7 @@ export default function MapPanel({
             <span className="flex h-2.5 w-2.5 rounded-full bg-teal-accent animate-pulse" />
             <h3 className="text-sm font-semibold text-white">US Data Center Sites</h3>
             <span className="rounded-md bg-navy-700 px-2 py-0.5 text-[10px] font-medium text-slate-300">
-              Interactive 2D View
+              2D Schematic View
             </span>
           </div>
 
@@ -218,7 +507,7 @@ export default function MapPanel({
                 className="flex items-center gap-1.5 rounded-md border border-navy-600 bg-navy-700 px-2.5 py-1 text-[11px] font-medium text-slate-300 hover:border-teal-accent hover:text-white transition-colors"
               >
                 <Layers size={13} />
-                <span>Switch to 3D Map</span>
+                <span>Switch to Satellite Map</span>
               </button>
             )}
 
@@ -237,6 +526,8 @@ export default function MapPanel({
             )}
           </div>
         </div>
+
+        <p className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-2 text-xs text-amber-100">This schematic cannot place exact map points. Use the satellite map for facility and home distance guides.</p>
 
         {/* Continental US SVG Map */}
         <div className="relative my-2 flex flex-1 items-center justify-center overflow-hidden rounded-lg bg-navy-900/60 p-2">
@@ -405,22 +696,114 @@ export default function MapPanel({
     )
   }
 
-  // WebGL 3D Map View
+  // Interactive satellite map and proximity panel. Rings use a user-placed
+  // facility point; a ZIP/city/state center is never substituted for one.
+  const homeDistance = sitePoint && homePoint ? distanceMiles(sitePoint, homePoint) : null
+  const band = homeDistance === null ? null : proximityBand(homeDistance)
+  const bandStyles = {
+    red: 'border-red-500/40 bg-red-500/10 text-red-300',
+    yellow: 'border-yellow-400/40 bg-yellow-400/10 text-yellow-200',
+    blue: 'border-sky-400/40 bg-sky-400/10 text-sky-200',
+    outside: 'border-slate-500/40 bg-slate-500/10 text-slate-300',
+  }
+  const bandLabels = {
+    red: 'Within 1 mile',
+    yellow: '1 to 3 miles',
+    blue: '3 to 5 miles',
+    outside: 'Beyond 5 miles',
+  }
+
   return (
-    <div className="relative h-full w-full overflow-hidden rounded-xl border border-navy-600 bg-navy-800">
-      <div
-        ref={containerRef}
-        className="h-full min-h-[320px] w-full lg:min-h-[520px]"
-      />
-      {/* Switch to 2D view toggle button */}
-      <button
-        onClick={() => setUseFallback(true)}
-        className="absolute bottom-3 left-3 flex items-center gap-1.5 rounded-lg border border-navy-600 bg-navy-800/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 backdrop-blur hover:border-teal-accent hover:text-white transition-colors"
-        title="Switch to 2D vector schematic map"
-      >
-        <Layers size={13} />
-        <span>2D View</span>
-      </button>
+    <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
+      <div className="relative h-[420px] w-full overflow-hidden rounded-xl border border-navy-600 bg-navy-800 lg:h-[560px]">
+        <div ref={containerRef} className="h-full w-full" />
+        <div className="absolute left-3 top-3 z-10 flex overflow-hidden rounded-lg border border-navy-600 bg-navy-800/95 text-[11px] font-medium shadow-lg backdrop-blur">
+          {(['satellite', 'street'] as const).map(option => (
+            <button key={option} type="button" onClick={() => setBasemap(option)} aria-pressed={basemap === option}
+              className={['px-3 py-1.5 transition-colors', basemap === option ? 'bg-teal-accent text-navy-900' : 'text-slate-200 hover:bg-navy-700'].join(' ')}>
+              {option === 'satellite' ? 'Satellite' : 'Street'}
+            </button>
+          ))}
+        </div>
+        <div className="absolute left-3 top-14 z-10 max-w-[calc(100%-1.5rem)] rounded-lg border border-navy-600 bg-navy-800/95 p-2 text-[11px] text-slate-200 shadow-lg backdrop-blur">
+          <div className="flex flex-wrap gap-1.5">
+            <button type="button" onClick={() => setPlacementMode(mode => mode === 'site' ? null : 'site')}
+              aria-pressed={placementMode === 'site'}
+              className={`rounded px-2 py-1 ${placementMode === 'site' ? 'bg-teal-accent text-navy-900' : 'bg-navy-700 hover:text-white'}`}>
+              {sitePoint ? 'Move facility pin' : 'Place proposed facility'}
+            </button>
+            <button type="button" disabled={!sitePoint} onClick={() => setPlacementMode(mode => mode === 'home' ? null : 'home')}
+              aria-pressed={placementMode === 'home'}
+              className={`rounded px-2 py-1 disabled:opacity-40 ${placementMode === 'home' ? 'bg-teal-accent text-navy-900' : 'bg-navy-700 hover:text-white'}`}>
+              {homePoint ? 'Move my home' : 'Place my home'}
+            </button>
+            {(sitePoint || homePoint) && <button type="button" onClick={() => { setSitePoint(null); setHomePoint(null); setPlacementMode(null); setPlacementError(null) }}
+              className="rounded bg-navy-700 px-2 py-1 hover:text-white">Clear pins</button>}
+          </div>
+          {placementMode && <p className="mt-1 text-teal-accent">Click the map to {placementMode === 'site' ? 'mark a proposed facility point' : 'mark your home point'}.</p>}
+          {placementError && <p role="alert" className="mt-1 text-amber-200">{placementError}</p>}
+        </div>
+        {sitePoint && <div className="absolute bottom-12 right-3 z-10 rounded-lg border border-navy-600 bg-navy-800/90 px-2.5 py-1.5 text-[10px] font-semibold text-slate-200 shadow-lg backdrop-blur">
+          <span className="text-red-400">● 1 mi</span><span className="mx-2 text-yellow-300">● 3 mi</span><span className="text-sky-300">● 5 mi</span>
+        </div>}
+        <button type="button" onClick={() => setUseFallback(true)}
+          className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-lg border border-navy-600 bg-navy-800/90 px-2.5 py-1.5 text-[11px] font-medium text-slate-300 backdrop-blur hover:border-teal-accent hover:text-white"
+          title="Switch to 2D vector schematic map"><Layers size={13} />2D View</button>
+      </div>
+
+      <aside className="space-y-3" aria-label="Neighborhood distance details">
+        <div className="rounded-xl border border-navy-600 bg-navy-800 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-teal-accent">Research area</p>
+          <h3 className="mt-1 text-sm font-semibold text-white">{researchArea?.label || 'No project area selected'}</h3>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">{researchArea
+            ? `The map is centered on an approximate ${researchArea.precision} area. ${areaBoundary ? 'The teal outline is a placement guide. ' : 'No area outline is available. '}Research has not established an exact facility point.`
+            : 'Audit a proposal to center the map, or place a hypothetical facility pin directly.'}</p>
+        </div>
+        <div className="rounded-xl border border-navy-600 bg-navy-800 p-4">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-teal-accent">Check your distance</p>
+          {!sitePoint ? <p className="mt-2 text-sm text-slate-300">First select <strong className="text-white">Place proposed facility</strong> and click its location on the map.</p>
+            : !homePoint ? <p className="mt-2 text-sm text-slate-300">Now select <strong className="text-white">Place my home</strong> and click your location. You can move either pin afterward.</p>
+            : <>
+              <p className="mt-2 text-2xl font-bold text-white">{homeDistance?.toFixed(2)} <span className="text-sm font-medium text-slate-400">miles away</span></p>
+              {band && <p className={`mt-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold ${bandStyles[band]}`}>{bandLabels[band]}</p>}
+              <p className="mt-2 text-xs text-slate-400">Straight-line distance between the two points you placed. It is not a measured impact or risk score.</p>
+            </>}
+        </div>
+        <div className="rounded-xl border border-navy-600 bg-navy-800 p-4">
+          <h3 className="text-sm font-semibold text-white">What the rings mean</h3>
+          <ul className="mt-3 space-y-2 text-xs text-slate-300">
+            <li><span className="font-semibold text-red-400">Red · 0–1 mile</span> — closest distance band</li>
+            <li><span className="font-semibold text-yellow-300">Yellow · 1–3 miles</span> — middle distance band</li>
+            <li><span className="font-semibold text-sky-300">Blue · 3–5 miles</span> — outer distance band</li>
+          </ul>
+          <p className="mt-3 text-[11px] leading-relaxed text-slate-400">These fixed circles are proximity guides. Local water, power, noise, and air effects need separate evidence and models.</p>
+        </div>
+        {sitePoint && screeningResult?.map_overlays && <div className="rounded-xl border border-cyan-500/25 bg-navy-800 p-4">
+          <h3 className="text-sm font-semibold text-white">Screening data on the map</h3>
+          <p className="mt-2 text-xs text-cyan-200">Dashed cyan: {screeningResult.map_overlays.usgs_search_radius_miles} mile USGS gauge search area.</p>
+          <p className="mt-1 text-xs text-slate-300">{screeningResult.map_overlays.water_gauges.length} analyzed gauge{screeningResult.map_overlays.water_gauges.length === 1 ? '' : 's'} plotted. The yellow marker is the gauge used for the water comparison; other gauges are cyan.</p>
+          {screeningResult.map_overlays.noise_threshold && <>
+            <p className="mt-2 text-xs text-purple-200">Dashed purple: {screeningResult.map_overlays.noise_threshold.radius_miles.toFixed(2)} mile modeled noise contour at {screeningResult.map_overlays.noise_threshold.threshold_dba} dB(A).</p>
+            {homeDistance !== null && <p className="mt-1 text-xs text-slate-300">Your home pin is {homeDistance <= screeningResult.map_overlays.noise_threshold.radius_miles ? 'inside' : 'outside'} this modeled contour.</p>}
+            <p className="mt-1 text-[11px] text-amber-100">Based on assumed equipment and a comparison threshold, not measured noise or a legal boundary.</p>
+          </>}
+          <p className="mt-2 text-[11px] text-slate-400">The search area does not show who receives water from a river or utility.</p>
+          <button type="button" onClick={() => {
+            const map = mapRef.current
+            if (!map) return
+            const bounds = new maplibregl.LngLatBounds()
+            distanceCircle(sitePoint, screeningResult.map_overlays.usgs_search_radius_miles)
+              .forEach(([lng, lat]) => bounds.extend([lng, lat]))
+            map.fitBounds(bounds, { padding: 45, duration: 600 })
+          }} className="mt-3 rounded border border-cyan-400/50 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 hover:bg-cyan-400/10">View USGS search area</button>
+        </div>}
+        <div className="rounded-xl border border-navy-600 bg-navy-800 p-4">
+          <div className="flex items-center justify-between gap-2"><label htmlFor="map-capacity" className="text-sm font-semibold text-white">Explore facility size</label><span className="text-xs font-bold text-teal-accent">{capacity} MW</span></div>
+          <input id="map-capacity" type="range" min={0.1} max={Math.max(1000, Math.ceil(capacity / 100) * 100)} step={0.1} value={capacity}
+            onChange={event => onCapacityChange(Number(event.target.value))} className="mt-4 w-full" />
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-400">This changes the site-screening IT capacity to a hypothetical value. Run screening again to update the modeled noise contour. The 1, 3, and 5 mile guides stay fixed.</p>
+        </div>
+      </aside>
     </div>
   )
 }

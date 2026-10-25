@@ -2,17 +2,23 @@
 
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 from time import perf_counter
 from typing import Literal
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
 from pydantic import BaseModel, ConfigDict, Field
+
+load_dotenv(Path(__file__).resolve().parents[2] / ".env", override=False)
 
 from app.investigation import router as investigation_router
 from app.research import router as research_router
 from app.research_scenario import router as research_scenario_router
 from app.place_geocode import router as place_geocode_router
 from app.research_jobs import router as research_jobs_router
+from app.area_boundary import router as area_boundary_router
+from app.site_screening import router as site_screening_router
 
 HOURS_PER_YEAR = 8760
 logger = logging.getLogger("uvicorn.error")
@@ -71,6 +77,8 @@ app.include_router(research_router)
 app.include_router(research_scenario_router)
 app.include_router(place_geocode_router)
 app.include_router(research_jobs_router)
+app.include_router(area_boundary_router)
+app.include_router(site_screening_router)
 
 
 @app.post("/api/estimate", response_model=EstimateResponse)

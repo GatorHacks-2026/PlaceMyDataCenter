@@ -1,13 +1,146 @@
 # Web App Progress — Frontend and Backend
 
-**Status:** Historical preview progress below. Current research work is tracked
-in `RESEARCH_PIPELINE_PLAN.md` and `RESEARCH_EVALUATION.md`.
+**Status:** Current map work is recorded first; historical preview progress
+follows. Research coverage is tracked in `RESEARCH_PIPELINE_PLAN.md` and
+`RESEARCH_EVALUATION.md`.
 
-**Branch:** `community-impact-pivot`
+**Branch:** `research-evidence-contract`
 
 Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
+
+## 2026-10-25 — USGS and modeled noise map overlays
+
+- Preserved latitude and longitude for analyzed USGS gauges in the water
+  collector, and returned them with distance, dry-period flow, and which gauge
+  was used for the screening comparison. No coordinates are invented when a
+  gauge has no geometry.
+- Returned the existing calculator's modeled night-noise threshold distance
+  separately from the home-pin reading. The map now draws a dashed purple
+  contour for that distance and a dashed cyan outline for the USGS gauge
+  search radius. It plots the analyzed gauges and can zoom to the search area.
+  The fixed 1/3/5-mile guides remain explicitly separate.
+- Shared the map's facility-size input with site screening, separate from the
+  illustrative Playground. Changing the input or pins clears stale screening
+  overlays until screening runs again. A home pin cannot be placed at virtually
+  the same point as the facility.
+- Verified frontend build, targeted backend tests, a live FastAPI screening
+  response with eight plotted Atlanta-area gauges and a 2.783-mile modeled
+  noise contour, and the browser flow from research to map overlays. The
+  gauge search area is not an impact boundary; modeled noise depends on
+  assumed equipment and a comparison threshold.
+
+## 2026-10-25 — Live screening API configuration
+
+- Added backend startup loading for a root `.env` file, kept out of Git, and
+  documented the EIA and USGS environment variables in `.env.example`.
+- Configured the local backend with the provided keys. A live FastAPI screening
+  job for a hypothetical 100 MW Atlanta site returned EIA electricity data
+  (2024-09 through 2026-08) and a USGS discharge gauge with a 2025-10-25
+  through 2026-10-25 sample. All four layers returned; water, carbon, and
+  noise still depend on stated model assumptions. The EIA state energy proxy
+  is not grid interconnection capacity, and the nearby gauge is not a water
+  right or confirmed facility supply.
+- Corrected the audit summary so pasted text is distinguished from public URLs.
+  When no public URL was reviewed, the audit now says so prominently and
+  reports if Brave discovery was unavailable. The frontend production build
+  passed after this change.
+- Brave search and Gemini extraction are not configured in the current local
+  `.env`; pasted text alone cannot independently discover sources.
+
+## 2026-10-25 — Site outline and calculation integration
+
+- Added approximate ZIP (Census ZCTA) and state outlines from Census TIGERweb.
+  City research can use a simplified OpenStreetMap city polygon when the
+  geocoder supplies one. A ZIP entered by the user is marked as an unverified
+  search area unless a reviewed project ZIP is found. The outline guides
+  placement; it is not the facility location. A facility pin outside the
+  available outline gets a warning.
+- Connected the user-placed facility and optional home pins to a new site
+  screening form. Only one sourced, non-conflicting **IT capacity** claim may
+  prefill the form. Otherwise users explicitly choose a hypothetical IT MW.
+- Added bounded background site-screening jobs behind FastAPI. The adapter
+  runs the team's `Data_Center_backend.py` power, water, carbon, and noise
+  calculations without changing research claims. It resolves the pin's state
+  via Census, separates unavailable layers, and returns input assumptions,
+  source labels, metrics, and limitations. Missing EIA key leaves power
+  `not_checked`; no home pin leaves noise `not_checked`.
+- Corrected the standalone USGS collector for the `[longitude, latitude]`
+  geometry returned by `dataretrieval` when GeoPandas is absent. A live public
+  USGS run returned eight Atlanta-area gauges.
+- Verified the frontend build, 15 frontend tests, 102 Python tests, and live
+  Census ZIP/state/point lookups. Browser checks covered a Texas article to
+  El Paso city outline, ZIP 79901 as an explicitly unverified search area,
+  pin placement, and a partial screening. An Atlanta run returned live USGS
+  river data with a modeled water need; electricity stayed `not_checked`
+  without an EIA key and noise stayed `not_checked` without a home pin.
+
+## 2026-10-25 — Article-centered satellite distance view
+
+- Removed the two ZIP comparison inputs from Playground. Research location
+  remains in the shared intake field.
+- A project-associated ZIP centers the satellite map on an approximate ZIP
+  area; city and state research results center on broader approximate areas.
+  None is silently treated as an exact facility coordinate.
+- Users place a proposed facility and home on the satellite map. The app shows
+  straight-line distance and fixed red 0–1, yellow 1–3, and blue 3–5 mile
+  guides. These are proximity bands, not measured environmental effects.
+- Added a satellite-view facility-size slider linked to Playground IT capacity.
+  The rings stay fixed until a supported impact model can vary them.
+- Verified the frontend build and 13 frontend tests. A live pasted-text
+  research run identified Pine Island, MN, centered the map on its approximate
+  city area, and kept the facility point unplaced. Browser placement of both
+  pins produced a distance result. Playground has no ZIP inputs.
+
+## 2026-10-25 — Citizen auditor frontend, first slice
+
+- Reworked the dashboard shell using the supplied HTML as visual inspiration:
+  compact header and shared location input, an article/PDF intake drawer,
+  four evidence-count summary cards, and Map / Audit / Playground views.
+- Added an Audit view driven by the existing research response. It shows
+  source-linked claims, scoped missing information, conflicts, reviewed
+  sources, copyable town hall questions, and optional full research narrative.
+- Kept the MapLibre satellite map and illustrative simulator. The audit cards
+  say "not found in reviewed sources" rather than implying information was
+  withheld, and simulator values remain separate from project claims.
+- A live pasted-text run for Pine Island, MN produced one reviewed source, one
+  reported capacity claim, five tracked gaps, and tailored questions. The map
+  still showed an approximate city center after switching views. Frontend
+  build and 12 data tests passed.
+- The next slices are human-scale impact views, cooling comparison charts,
+  local environmental context adapters, and county ranking. No environmental
+  or county fixture data was added in this slice.
+
+## 2026-10-25 — Optional neighborhood distance view
+
+- Kept MapLibre and added a default USGS imagery view with a Street switch.
+- Added explicit user placement of a hypothetical site point and a home point.
+  Geodesic 1-, 3-, and 5-mile guides and the displayed home distance are map
+  exploration only, not claimed noise, water, or health impact zones.
+- Placed points are local UI state, cleared on a new research result or selected
+  location. Research intake, project matching, source collection, claims, and
+  API contracts are unchanged. City/ZIP area centers are not silently used as
+  facility coordinates; state-only research still has no facility marker.
+- Verified 10 frontend tests, the production build, and 100 Python tests,
+  including the state/article research regressions.
+- The map now occupies a full row at every screen width. Research and simulator
+  controls sit below it; on wide screens those two panels can share a row.
+
+## 2026-10-25 — Separate project and resident ZIP comparison
+
+- Split the simulator's project ZIP input from the research location text, and
+  added a second ZIP input for the resident. The resident ZIP does not alter
+  project matching, claims, or simulator factors.
+- A selected research result fills the project ZIP only when its selected
+  project has a ZIP; the user's search-area ZIP alone is not used. Users may
+  choose a hypothetical project ZIP when none is available.
+- Both ZIPs resolve through the existing public lookup. The map shows
+  approximate ZIP centers, geodesic distance guides, and a center-to-center
+  comparison. It does not claim a home is inside an impact zone from ZIPs.
+- Verification: 12 frontend tests, a production build, and the existing Python
+  research suite. The new frontend regression covers the search-ZIP versus
+  project-ZIP distinction.
 
 ## 2026-10-24 — Research branch update
 
