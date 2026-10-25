@@ -1,19 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { FileText, Leaf, MapPinned, Search, SlidersHorizontal } from 'lucide-react'
+import { FileText, Leaf, MapPinned, Search } from 'lucide-react'
 import MapPanel, { type ResearchArea } from './components/MapPanel'
-import ConfigPanel from './components/ConfigPanel'
 import ResearchPanel from './components/ResearchPanel'
 import AuditPanel from './components/AuditPanel'
-import MetricsPanel from './components/MetricsPanel'
+import ScreeningPlayground from './components/ScreeningPlayground'
 import ErrorBoundary from './components/ErrorBoundary'
-import {
-  LOCATIONS,
-  type AnalysisInput,
-  type AnalysisResult,
-  type CoolingType,
-  type Location,
-} from './data/demo'
-import { requestEstimate } from './data/estimate'
+import { LOCATIONS, type Location } from './data/demo'
 import { projectZipFromResult, type ResearchResult } from './data/research'
 import { geocodeUsZip } from './data/geocode'
 import type { Feature, MultiPolygon, Polygon } from 'geojson'
@@ -22,19 +14,16 @@ import SiteScreeningPanel from './components/SiteScreeningPanel'
 import { uniqueItCapacityClaim, type SiteScreeningResult } from './data/siteScreening'
 
 export default function App() {
-  const [activeView, setActiveView] = useState<'map' | 'audit' | 'playground'>('map')
+  const [activeView, setActiveView] = useState<'map' | 'audit'>('map')
   const [intakeOpen, setIntakeOpen] = useState(false)
   const [researchResult, setResearchResult] = useState<ResearchResult | null>(null)
   const [location, setLocation] = useState<Location>(LOCATIONS[0])
   // Preset sites plus approximate research locations.
   const [searchedLocations, setSearchedLocations] = useState<Location[]>([])
-  const [capacity, setCapacity] = useState(100)
   const [screeningCapacity, setScreeningCapacity] = useState(100)
   const [screeningBasis, setScreeningBasis] = useState<'reported_it' | 'hypothetical'>('hypothetical')
   const [screeningConfirmed, setScreeningConfirmed] = useState(false)
   const [screeningResult, setScreeningResult] = useState<SiteScreeningResult | null>(null)
-  const [utilization, setUtilization] = useState(0.85)
-  const [cooling, setCooling] = useState<CoolingType>('Evaporative')
 
   // A research area is not a verified facility parcel.
   const [proposedLocation, setProposedLocation] = useState('')
@@ -42,61 +31,11 @@ export default function App() {
   const [areaBoundary, setAreaBoundary] = useState<Feature<Polygon | MultiPolygon> | null>(null)
   const [facilityPoint, setFacilityPoint] = useState<MapPoint | null>(null)
   const [homePoint, setHomePoint] = useState<MapPoint | null>(null)
-  const [result, setResult] = useState<AnalysisResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [analyzing, setAnalyzing] = useState(false)
-  const analysisAbortRef = useRef<AbortController | null>(null)
-  // True when the config changed since the last successful Analyze.
-  const [stale, setStale] = useState(false)
   const [researchMapNote, setResearchMapNote] = useState<string | null>(null)
   const [researchUnmapped, setResearchUnmapped] = useState(false)
   const [researchViewCenter, setResearchViewCenter] = useState<{lat: number; lng: number; zoom: number} | null>(null)
   const [researchMapResetKey, setResearchMapResetKey] = useState(0)
   const mapRequestRef = useRef(0)
-
-  const markStale = () => {
-    analysisAbortRef.current?.abort()
-    analysisAbortRef.current = null
-    setAnalyzing(false)
-    setError(null)
-    setStale(true)
-  }
-
-  const runAnalysis = async (input: AnalysisInput) => {
-    analysisAbortRef.current?.abort()
-    const controller = new AbortController()
-    analysisAbortRef.current = controller
-    setAnalyzing(true)
-    setError(null)
-    try {
-      const estimate = await requestEstimate(input, controller.signal)
-      if (analysisAbortRef.current !== controller) return
-      setResult(estimate)
-      setStale(false)
-    } catch (cause) {
-      if (analysisAbortRef.current !== controller) return
-      if (cause instanceof DOMException && cause.name === 'AbortError') return
-      setError(cause instanceof Error ? cause.message : 'Analysis failed. Please retry.')
-    } finally {
-      if (analysisAbortRef.current === controller) {
-        analysisAbortRef.current = null
-        setAnalyzing(false)
-      }
-    }
-  }
-
-  useEffect(() => {
-    void runAnalysis({
-      location: LOCATIONS[0],
-      capacityMW: 100,
-      utilization: 0.85,
-      cooling: 'Evaporative',
-    })
-    return () => {
-      analysisAbortRef.current?.abort()
-      analysisAbortRef.current = null
-    }
-  }, [])
 
   const allLocations = [...LOCATIONS, ...searchedLocations]
 
@@ -135,10 +74,6 @@ export default function App() {
     setScreeningResult(null)
   }
 
-  const handleAnalyze = () => {
-    void runAnalysis({ location, capacityMW: capacity, utilization, cooling })
-  }
-
   const handleResearchResult = async (research: ResearchResult) => {
     setResearchMapResetKey(previous => previous + 1)
     setResearchArea(null)
@@ -162,7 +97,6 @@ export default function App() {
         setResearchUnmapped(false)
         setResearchViewCenter({ lat: loc.lat, lng: loc.lng, zoom: 11 })
         setResearchMapNote(`Research found project ZIP ${projectZip}. The map is centered on its approximate postal area; place the facility pin before measuring home distance.`)
-        markStale()
       } catch {
         if (mapRequestRef.current === requestId) setResearchMapNote(`Project ZIP ${projectZip} could not be located on the map. Place a hypothetical site pin to explore distance.`)
       }
@@ -185,7 +119,6 @@ export default function App() {
         setResearchUnmapped(false)
         setResearchViewCenter({ lat: loc.lat, lng: loc.lng, zoom: 11 })
         setResearchMapNote(`ZIP ${searchZip} is the area you searched, not a verified facility ZIP. Use its approximate outline to place the proposed facility pin.`)
-        markStale()
         return
       } catch {
         // Fall through to the identified city or state when the search ZIP cannot be resolved.
@@ -195,7 +128,6 @@ export default function App() {
       setResearchUnmapped(true)
       setResearchViewCenter(null)
       setResearchMapNote(`Research area: ${place.state || 'location unresolved'}. No facility point is known.`)
-      markStale()
       if (place.state) {
         try {
           const response = await fetch(`/api/research/geocode?${new URLSearchParams({ state: place.state })}`)
@@ -233,13 +165,11 @@ export default function App() {
       setResearchUnmapped(false)
       setResearchViewCenter({ lat: loc.lat, lng: loc.lng, zoom: 10 })
       setResearchMapNote(`Research identified ${place.city}, ${place.state}. The map shows an approximate city center, not the facility; place a facility pin before measuring home distance.`)
-      markStale()
     } catch {
       if (mapRequestRef.current === requestId) {
         setResearchUnmapped(true)
         setResearchViewCenter(null)
         setResearchMapNote(`Research location ${place.city}, ${place.state} could not be placed on the map.`)
-        markStale()
       }
     }
   }
@@ -252,7 +182,6 @@ export default function App() {
   const nav = [
     { key: 'map', label: 'Satellite map', icon: MapPinned },
     { key: 'audit', label: 'Proposal audit', icon: FileText },
-    { key: 'playground', label: 'Playground', icon: SlidersHorizontal },
   ] as const
   const projectName = researchResult?.project?.name || researchResult?.project?.developer
   const placeName = researchResult?.project?.location.city
@@ -313,7 +242,7 @@ export default function App() {
 
         <section className={activeView === 'map' ? 'space-y-3' : 'hidden'} aria-label="Satellite map">
           {researchMapNote && <p className="rounded border border-teal-accent/25 bg-navy-800 p-2 text-xs text-slate-300">{researchMapNote}</p>}
-          <ErrorBoundary fallback={<div className="flex min-h-[320px] items-center justify-center rounded-xl border border-navy-600 bg-navy-800 p-6 text-center text-slate-300">Map view encountered an issue. The Playground remains available.</div>}>
+          <ErrorBoundary fallback={<div className="flex min-h-[320px] items-center justify-center rounded-xl border border-navy-600 bg-navy-800 p-6 text-center text-slate-300">Map view encountered an issue. Reload the page to try again.</div>}>
             <MapPanel
               locations={allLocations}
               selectedId={researchUnmapped ? '' : location.id}
@@ -332,7 +261,6 @@ export default function App() {
                 setResearchMapNote('This is a simulator example location. Place a hypothetical facility point to explore distance; the audit result is unchanged.')
                 setResearchUnmapped(false)
                 setResearchViewCenter(null)
-                markStale()
               }}
             />
           </ErrorBoundary>
@@ -340,32 +268,14 @@ export default function App() {
             capacity={screeningCapacity} basis={screeningBasis} confirmed={screeningConfirmed}
             onCapacityChange={changeScreeningCapacity} result={screeningResult} onResultChange={setScreeningResult} />
           <p className="rounded-xl border border-navy-600 bg-navy-800 p-3 text-xs text-slate-400">The rings are fixed distance guides. They do not show measured noise, water, air quality, health, or utility-bill effects.</p>
+          <ScreeningPlayground screening={screeningResult} />
         </section>
 
         <div id="audit-view" className={activeView === 'audit' ? '' : 'hidden'}>
           <AuditPanel result={researchResult} onStartResearch={openIntake} />
         </div>
 
-        <section className={activeView === 'playground' ? 'space-y-5' : 'hidden'} aria-label="Illustrative playground">
-          <div className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-amber-100"><strong>Illustrative simulator:</strong> These inputs use demo regional factors and are separate from the sourced proposal audit. Project-specific scenario assumptions remain in the research form.</div>
-          {researchResult?.project && <button type="button" onClick={openIntake} className="text-sm font-semibold text-teal-accent">Open project scenario calculator →</button>}
-          <ConfigPanel
-            location={location}
-            capacity={capacity}
-            utilization={utilization}
-            cooling={cooling}
-            stale={stale}
-            error={error}
-            analyzing={analyzing}
-            onCapacityChange={v => { setCapacity(v); markStale() }}
-            onUtilizationChange={v => { setUtilization(v); markStale() }}
-            onCoolingChange={v => { setCooling(v); markStale() }}
-            onAnalyze={handleAnalyze}
-          />
-          <MetricsPanel result={stale ? null : result} />
-        </section>
-
-        <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Simulator metrics are modeled with demo regional assumptions, not measured local impacts.</footer>
+        <footer className="pt-2 text-center text-[11px] text-slate-500">Research claims cite reviewed sources. Site screening separates observed regional data from modeled assumptions; Playground comparisons are scenario estimates.</footer>
       </div>
     </div>
   )
