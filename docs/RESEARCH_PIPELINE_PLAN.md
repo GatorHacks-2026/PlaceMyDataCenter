@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–3 implemented; points 4–5 code and offline checks implemented, live provider checks pending.
+**Status:** Points 1–3 and 6 implemented; points 4–5 code and offline checks implemented, live provider checks pending.
 
 ## Goal
 
@@ -218,6 +218,16 @@ environmental or tariff extraction.
 
 **Done when:** Each significant statement in the report has evidence or an
 estimate label; conflicting cost and tariff claims are attributed separately.
+
+**Implementation:** `reconciliation.py` merges identical values across
+independent origins, retains incompatible figures, and explains explicitly
+different phases without averaging. `estimates.py` implements configurable
+preliminary MW proxies and keeps the 100 MW baseline as a scenario rather than
+a project fact. `report.py` generates a cited, neutral summary and questions
+for information not found in reviewed sources. Offline tests cover independent
+versus syndicated support, unresolved and phase-specific MW figures, null
+capacity despite a proxy, and cited summary language. Live source quality
+still depends on points 4–5 being configured and evaluated.
 
 ### 7. API and frontend integration
 

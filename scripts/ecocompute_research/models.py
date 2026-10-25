@@ -164,6 +164,8 @@ class Claim(StrictModel):
     status: EvidenceStatus
     capacity_kind: CapacityKind | None = None
     phase: ProjectPhase = ProjectPhase.UNKNOWN
+    phase_label: str | None = None
+    basis: str | None = None
     as_of: date | None = None
     evidence: list[EvidenceRef] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)

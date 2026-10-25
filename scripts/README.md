@@ -28,6 +28,10 @@ extraction (`gemini.py`), coordinated by `fact_extractor.py`. Set
 `GEMINI_API_KEY` to enable it; `GEMINI_MODEL` selects the model and defaults to
 `gemini-3.8-flash`. Each retained claim cites an excerpt from its source.
 
+Point 6 adds `reconciliation.py`, `estimates.py`, and `report.py` for conflict
+preservation, provisional capacity proxies, missing-field questions, and a
+source-linked summary.
+
 From the repository root, after installing `backend/requirements-dev.txt`, run:
 
 ```sh
