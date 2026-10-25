@@ -18,6 +18,11 @@ its reusable parts.
 Point 3 adds `identity.py`, which extracts location-matched project candidates
 from seed text and returns ambiguity when the input does not identify one site.
 
+Point 4 adds `discovery.py` and `collection.py`. Set `BRAVE_SEARCH_API_KEY` in
+the environment to use the Brave Web Search API. Without it, discovery returns
+a partial result with no invented URLs. Search and collection limits are
+arguments to their entry functions. A live provider check still requires a key.
+
 From the repository root, after installing `backend/requirements-dev.txt`, run:
 
 ```sh

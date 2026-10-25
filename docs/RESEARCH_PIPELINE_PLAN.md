@@ -1,6 +1,6 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–3 implemented on `research-evidence-contract`; later points pending.
+**Status:** Points 1–3 implemented; point 4 code and offline checks implemented, live provider check pending.
 
 ## Goal
 
@@ -166,6 +166,18 @@ Pine Island, same-company different-site mentions, ambiguity, and mismatch.
 
 **Done when:** A configured run discovers relevant sources beyond the input,
 and unavailable search produces an explicitly partial result.
+
+**Implementation:** `discovery.py` builds bounded project-specific queries and
+uses the Brave Web Search API when `BRAVE_SEARCH_API_KEY` is set. It deduplicates
+URLs and scores leads against the facility location. `collection.py` fetches
+bounded sources, retries transient failures, caches results within a run,
+rejects unrelated facilities and duplicate text, and records retrieval time
+and source URL. `scripts/tests/test_discovery_collection.py` exercises the
+provider request shape, outage behavior, project filtering, deduplication,
+and collection failures with offline transports. The implementation uses the
+[Brave Web Search API reference](https://api-dashboard.search.brave.com/api-reference/web/search/get).
+No Brave key is available in this checkout, so live discovery remains an
+acceptance check. Search snippets are leads, not verified evidence.
 
 ### 5. Typed fact extraction
 
