@@ -2,6 +2,26 @@
 
 A data center sustainability simulator. The React dashboard shows modeled annual water, electricity, and carbon estimates for a selected US location, capacity, utilization, and cooling type. Regional grid factors and drought labels are demo assumptions, not measured site data.
 
+ata Center Lens is a web-based transparency tool designed to expose the true resource footprint of local data centers. Stripping away corporate PR, it empowers everyday citizens with a straightforward utility tool to investigate real-world environmental impacts right in their backyards.
+
+## What it does
+
+Pinpoint Facilities: Explore an interactive geospatial map to locate data centers in your area.
+
+Extract Resource Data: Pull comprehensive real-world metrics on water consumption, electric consumption utilization, remaining capacity, noise levels, carbon emissions, and overall environmental impact.
+
+Agentic Battle: Consult an interactive AI agent powered by Gemma that weighs corporate claims against real-world resource costs in a balanced, data-driven breakdown.
+
+Export Instant Reports: Synthesize findings on the fly and generate a clean, citizen-ready PDF report for community advocacy and review.
+
+## How we built it
+
+Mapping & Data Pipeline: Integrated geospatial mapping to overlay local facility locations with resource data, utilizing the US EIA (Energy Information Administration) API to fetch regional electric consumption metrics and the USGS (U.S. Geological Survey) to analyze local water consumption and available rivers.
+
+Balanced Analysis Engine & LLM: Powered by Gemma, we programmed the Live Agent to evaluate multi-faceted arguments, contrasting corporate sustainability messaging with ground-truth resource impacts.
+
+Automated PDF Export: Implemented quick-generation tools to package investigation findings into portable, professional reports.
+
 ## Run locally
 
 Start the API in one terminal (Python 3.10+):
