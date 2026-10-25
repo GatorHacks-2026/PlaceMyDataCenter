@@ -1,5 +1,13 @@
 # Web App Plan — Location and Document Flow
 
+> Historical plan for the first location-and-pasted-text preview on
+> `community-impact-pivot`. The active screen on `research-evidence-contract`
+> uses `ResearchPanel` with URL, text, PDF, and location-only modes. Current
+> implementation and open acceptance work are tracked in
+> [RESEARCH_PIPELINE_PLAN.md](RESEARCH_PIPELINE_PLAN.md) and
+> [RESEARCH_EVALUATION.md](RESEARCH_EVALUATION.md). The phase checklist below
+> remains the original preview plan, not the current feature status.
+
 **Branch:** `community-impact-pivot`
 
 **Scope:** Our React frontend and FastAPI backend. The user provides one

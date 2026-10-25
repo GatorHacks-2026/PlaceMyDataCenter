@@ -7,12 +7,13 @@ from enum import Enum
 import os
 import re
 from typing import Protocol
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import httpx
 from pydantic import Field
 
 from .location import STATE_NAMES
+from .html_text import ArticleLink
 from .models import ProjectIdentity, StrictModel
 
 
@@ -151,6 +152,41 @@ def score_hit(hit: SearchHit, project: ProjectIdentity) -> int:
     score += 3 if any(alias in content for alias in aliases) else 0
     score += 1 if "data center" in content or "datacenter" in content else 0
     return score
+
+
+def discover_seed_links(
+    links: list[ArticleLink], seed_url: str, project: ProjectIdentity,
+    *, max_links: int = 8,
+) -> list[SearchHit]:
+    """Use relevant article links as leads; fetched page text still decides relevance."""
+    if not 1 <= max_links <= 20:
+        raise ValueError("Linked-source breadth is outside configured bounds")
+    found: dict[str, SearchHit] = {}
+    seed_key = canonical_url(seed_url)
+    for link in links:
+        url = urljoin(seed_url, link.href)
+        parts = urlsplit(url)
+        if parts.scheme not in {"http", "https"} or not parts.hostname:
+            continue
+        key = canonical_url(url)
+        if key == seed_key:
+            continue
+        title = link.label or parts.hostname
+        hit = SearchHit(title=title[:300], url=key, description=link.context[:1000],
+                        query="seed_article_link")
+        score = score_hit(hit, project)
+        if score < (4 if project.location.city else 3):
+            continue
+        topic = f"{link.label} {link.context}".casefold()
+        if not any(
+            word in topic for word in ("data center", "datacenter", "electric", "utility",
+                                     "water", "permit", "gas plant", "commission", "regulator")
+        ):
+            continue
+        ranked = hit.model_copy(update={"relevance_score": score})
+        if key not in found or found[key].relevance_score < score:
+            found[key] = ranked
+    return sorted(found.values(), key=lambda hit: hit.relevance_score, reverse=True)[:max_links]
 
 
 def discover_sources(

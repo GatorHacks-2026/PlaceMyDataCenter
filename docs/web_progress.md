@@ -1,12 +1,103 @@
 # Web App Progress — Frontend and Backend
 
-**Status:** Phases 0–3 partial; Phases 4–6 not started.
+**Status:** Historical preview progress below. Current research work is tracked
+in `RESEARCH_PIPELINE_PLAN.md` and `RESEARCH_EVALUATION.md`.
 
 **Branch:** `community-impact-pivot`
 
 Record completed work from `web.md` here. Individual tasks below may be done
 without the whole phase being complete. Do not mark a phase complete until its
 remaining tasks and "Done when" condition are verified.
+
+## 2026-10-24 — Research branch update
+
+- `research-evidence-contract` now has a `ResearchPanel` in the active dashboard
+  with location plus URL, pasted text, text-based PDF, or location-only input.
+  `POST /api/research` and `POST /api/research/pdf` run the bounded research
+  pipeline. The earlier investigation preview route remains available but is
+  no longer the visible entry path.
+- The research result shows project candidates, reviewed sources, source-linked
+  claims, conflicts, missing fields, summary, and coverage limitations apart
+  from the simulator's demo metrics.
+- ZIP research resolves the user's ZIP to city/state search context while
+  retaining the original ZIP and ZIP-area precision. Browser verification with
+  `55963` plus Pine Island text identified the project and reported one sourced
+  780 MW claim. Coverage correctly stayed partial without configured search or
+  model providers.
+- Verification after the ZIP fix: 80 Python tests passed; TypeScript and the
+  frontend build passed. The then-open El Paso defect and multi-source
+  discovery acceptance are recorded in `RESEARCH_EVALUATION.md`.
+
+## 2026-10-24 — El Paso capacity classification fix
+
+- Added a separate gas-generation claim so the proposed 366 MW plant is not
+  compared with the 1,000 MW Meta data center as facility capacity.
+- Added offline deterministic, model-output validation, and full pipeline
+  regressions. The Python suite passed 84 tests. A live single-source El Paso
+  rerun returned the two correctly separated figures with no conflict. It
+  remained partial; multi-source discovery and developer attribution remain open.
+
+## 2026-10-24 — Multi-source path without a search key
+
+- The research form and both API input types accept up to five additional
+  public source URLs. URL seed pages also supply bounded, project-relevant
+  links as candidate sources. The collector still fetches, checks relevance,
+  rejects duplicate text, and reports skipped URLs with reasons.
+- A live El Paso run reviewed the article and the City of El Paso resource
+  page with no Brave or Gemini key. The result remained partial: automatic
+  general web search is not available, and the city page's phased water and
+  investment details were not extracted into claims yet.
+- Verification: 91 Python tests, 8 frontend model tests, and a frontend build
+  passed. The existing MapLibre bundle warning remains non-blocking.
+
+## 2026-10-24 — El Paso accuracy, scenario, map, and longer jobs
+
+- A live two-source rerun identified Meta in El Paso, kept the 1,000 MW data
+  center separate from the 366 MW gas plant, and extracted the City's Tier
+  I–III average and maximum water allocations. The City's $1.5 billion
+  infrastructure description and the article's $10 billion project value
+  have separate fields and cited excerpts. Distinct water phases are explained
+  differences, not unresolved contradictions.
+- Added a research-specific scenario endpoint and form. Users enter IT MW,
+  utilization, PUE, WUE, and optional grid emissions. No reported facility
+  capacity is silently converted into IT load. The old simulator cards are
+  explicitly illustrative and clear when their selected location changes.
+- A selected city research result uses a cached, rate-limited city geocode to
+  select an approximate map marker. State-only research removes the active
+  marker and labels the broad area. The marker never claims to be a parcel.
+- Added bounded background research jobs with queued/running/complete status;
+  the frontend polls the result. Jobs are in-memory in this local prototype.
+- PDF extraction can OCR image-only pages using local `pdftoppm` and
+  `tesseract`, capped at 20 OCR pages. Both tools were installed/available in
+  this development environment and a real scanned PDF produced extracted
+  text. Deployment must provide the tools too.
+- Remaining provider dependency: broad automatic web search still needs a
+  working Brave key or a Gemini account with usable search quota. Explicit
+  URLs and article-linked sources work without one. Broader live accuracy
+  across other projects remains an evaluation task.
+
+## 2026-10-24 — State-level article input
+
+- Reproduced a user report: `Texas` plus the Inside Climate News El Paso URL
+  returned no project because the article said "in northeast El Paso" rather
+  than "El Paso, Texas". State-only identification now accepts a named city and
+  developer when the same sentence identifies the state; two different Texas
+  projects still return ambiguity. A live rerun with `Texas` and the article
+  reviewed the source and identified Meta's El Paso project.
+- The form now explains that a broad state works with a source naming one
+  project, and that location-only discovery needs a configured search
+  provider. Pasting only a URL into the text mode gives a direct correction.
+- If location-only research has no search provider, the result is failed with
+  a specific instruction to add an article, text, or PDF.
+
+## 2026-10-24 — Source coverage display and provider test
+
+- The research panel now keeps optional skipped-link and provider diagnostics
+  collapsed by default. Reviewed sources and cited claims remain visible.
+- A temporary Brave test token was checked against the official Web Search
+  endpoint. Brave returned `SUBSCRIPTION_TOKEN_INVALID`; no search access was
+  enabled, and the temporary local token file was removed. No token was saved
+  in the repository.
 
 ## Existing foundation available before V1
 
@@ -75,12 +166,11 @@ remaining tasks and "Done when" condition are verified.
 - **Phases 4–6:** Teammate integration, project-specific metrics, community
   questions, and full team review remain open.
 
-The first coding pass crossed Phase 0–2 task boundaries before the phase-by-
-phase review. The ZIP map fix was made in response to a reported broken input.
-No further feature phase should begin until the current phase is finished,
-recorded here, and reviewed.
+The text above this paragraph preserves the preview-era phase review. The
+current research branch is tracked in the research plan and evaluation.
 
 ## Next task
 
-Finish and review **Phase 0** only: make the simulator and investigation
-outputs unmistakably separate. Then proceed one phase at a time.
+Configure a usable search provider, then evaluate additional projects and
+source recall. Move in-memory jobs to a persistent queue before multi-worker
+deployment.

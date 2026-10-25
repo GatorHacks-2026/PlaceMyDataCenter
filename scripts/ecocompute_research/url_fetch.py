@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlsplit
 
 import httpx
 
-from .html_text import extract_html_text
+from .html_text import ArticleLink, parse_html
 
 
 MAX_BODY_BYTES = 5_000_000
@@ -30,6 +30,7 @@ class FetchedDocument:
     url: str
     media_type: str
     text: str
+    links: tuple[ArticleLink, ...] = ()
 
 
 def _resolve_addresses(host: str) -> list[str]:
@@ -123,6 +124,7 @@ def fetch_url(
                         body.extend(chunk)
                         if len(body) > max_body_bytes:
                             raise FetchError("too_large", "The article exceeds the download limit")
+                    links: tuple[ArticleLink, ...] = ()
                     if media_type == "application/pdf":
                         from .pdf_text import PdfTextError, extract_pdf_text
                         try:
@@ -131,10 +133,14 @@ def fetch_url(
                             raise FetchError(exc.code, str(exc)) from exc
                     else:
                         decoded = bytes(body).decode(response.encoding or "utf-8", errors="replace")
-                        text = extract_html_text(decoded) if media_type != "text/plain" else decoded.strip()
+                        if media_type != "text/plain":
+                            text, links = parse_html(decoded)
+                        else:
+                            text = decoded.strip()
                     if not text.strip():
                         raise FetchError("no_text", "No readable article text was found")
-                    return FetchedDocument(url=current, media_type=media_type, text=text.strip())
+                    return FetchedDocument(url=current, media_type=media_type,
+                                           text=text.strip(), links=links)
             except httpx.RequestError as exc:
                 raise FetchError("request_failed", "The article could not be retrieved") from exc
         raise FetchError("too_many_redirects", "The article redirected too many times")

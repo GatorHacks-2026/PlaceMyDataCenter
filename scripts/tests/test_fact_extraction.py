@@ -10,7 +10,10 @@ from scripts.ecocompute_research.fact_extractor import extract_facts
 from scripts.ecocompute_research.facts import extract_deterministic
 from scripts.ecocompute_research.fixtures import pine_island_contract_fixture
 from scripts.ecocompute_research.gemini import GeminiFactExtractor
-from scripts.ecocompute_research.models import ClaimSubject, SourceRecord, SourceType
+from scripts.ecocompute_research.models import (
+    ClaimSubject, Location, LocationPrecision, ProjectIdentity, SourceRecord, SourceType,
+)
+from scripts.ecocompute_research.reconciliation import reconcile_claims
 
 
 PROJECT = pine_island_contract_fixture().project
@@ -105,6 +108,95 @@ def test_generic_capacity_examples_do_not_conflict_with_project_capacity():
     ))
     claims = extract_deterministic(item, PROJECT)
     assert [claim.value for claim in claims if claim.field == "electricity.capacity_mw"] == [780]
+
+
+def test_el_paso_gas_plant_is_not_data_center_capacity():
+    project = ProjectIdentity(
+        developer="Meta",
+        location=Location(city="El Paso", state="TX", precision=LocationPrecision.CITY),
+    )
+    item = source("el_paso", (
+        "Meta plans a 1-gigawatt data center in El Paso, Texas. "
+        "El Paso Electric proposed a 366-megawatt natural gas facility "
+        "to power the Meta data center in El Paso."
+    ))
+    claims = extract_deterministic(item, project)
+    assert {(claim.field, claim.value, claim.subject) for claim in claims} == {
+        ("electricity.capacity_mw", 1000, ClaimSubject.DATA_CENTER),
+        ("energy_plan.gas_generation_capacity_mw", 366, ClaimSubject.GAS_GENERATION),
+    }
+    assert not reconcile_claims(claims, [item.source]).conflicts
+
+
+def test_el_paso_city_tiers_and_infrastructure_scope():
+    project = ProjectIdentity(developer="Meta", location=Location(
+        city="El Paso", state="TX", precision=LocationPrecision.CITY))
+    item = source("city", (
+        "The META data center project in El Paso, Texas is a $1.5 billion "
+        "infrastructure development.\n\nFAQs For META Data Center\n\n"
+        "How much water will this facility use?\n\n"
+        "The project is structured in tiers or phases. For Tiers I and II, "
+        "the maximum gallons per day (GPD) is 300,000 and 1 million GPD, "
+        "respectively, and 100,000 and 750,000 average GPD. "
+        "The total maximum allocation for Tier III is 2.5 million GPD, "
+        "with an average GPD of 1.5 million."
+    ))
+    claims = extract_deterministic(item, project)
+    water = {(claim.phase_label, claim.field): claim.value for claim in claims
+             if claim.measure == "water_allocation"}
+    assert water == {
+        ("Tier I", "water.maximum_allocation_gpd"): 300_000,
+        ("Tier I", "water.average_allocation_gpd"): 100_000,
+        ("Tier II", "water.maximum_allocation_gpd"): 1_000_000,
+        ("Tier II", "water.average_allocation_gpd"): 750_000,
+        ("Tier III", "water.maximum_allocation_gpd"): 2_500_000,
+        ("Tier III", "water.average_allocation_gpd"): 1_500_000,
+    }
+    assert [(claim.field, claim.value) for claim in claims if claim.subject == ClaimSubject.FINANCIAL] == [
+        ("financial.infrastructure_development_usd", 1_500_000_000),
+    ]
+
+
+def test_data_center_capacity_stays_separate_when_gas_plant_appears_later():
+    project = ProjectIdentity(
+        developer="Meta",
+        location=Location(city="El Paso", state="TX", precision=LocationPrecision.CITY),
+    )
+    item = source("el_paso_order", (
+        "Meta plans a 1-gigawatt data center in El Paso, Texas, "
+        "served by a natural gas plant."
+    ))
+    claims = extract_deterministic(item, project)
+    assert [(claim.field, claim.value) for claim in claims] == [
+        ("electricity.capacity_mw", 1000),
+    ]
+
+
+def test_gemini_cannot_label_gas_plant_as_data_center_capacity():
+    project = ProjectIdentity(
+        developer="Meta",
+        location=Location(city="El Paso", state="TX", precision=LocationPrecision.CITY),
+    )
+    excerpt = "El Paso Electric proposed a 366 MW natural gas plant to power Meta's El Paso data center."
+    item = source("el_paso_model", f"Meta plans a data center in El Paso, Texas. {excerpt}")
+    payload = {"claims": [{
+        "field": "electricity.capacity_mw", "subject": "data_center",
+        "measure": "power_capacity", "value": 366, "unit": "MW",
+        "capacity_kind": None, "excerpt": excerpt,
+    }]}
+
+    def answer(_request):
+        return httpx.Response(200, json={"candidates": [{"content": {"parts": [
+            {"text": json.dumps(payload)},
+        ]}}]})
+
+    with httpx.Client(transport=httpx.MockTransport(answer)) as client:
+        result = extract_facts([item], project,
+                               gemini=GeminiFactExtractor(api_key="test-key", client=client))
+    assert [claim for claim in result.claims if claim.subject == ClaimSubject.DATA_CENTER] == []
+    assert [(claim.field, claim.value) for claim in result.claims] == [
+        ("energy_plan.gas_generation_capacity_mw", 366),
+    ]
 
 
 def test_gemini_failure_falls_back_without_inventing_missing_values():

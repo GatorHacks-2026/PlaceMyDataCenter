@@ -13,6 +13,8 @@ python3 -m venv .venv
 .venv/bin/uvicorn app.main:app --reload --port 8000
 ```
 
+For scanned PDF OCR on macOS, install the local tools with `brew install poppler tesseract`.
+
 Start the frontend in another terminal (Node 22+):
 
 ```sh
@@ -27,12 +29,12 @@ Open <http://localhost:5173/>. Vite proxies `/api` to the local FastAPI server. 
 ```sh
 npm test
 npm run build
-cd backend && .venv/bin/python -m pytest tests -q
+PYTHONPATH=backend backend/.venv/bin/python -m pytest scripts/tests backend/tests -q
 ```
 
-The backend exposes `POST /api/estimate`, `POST /api/research`, and `POST /api/research/pdf`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel accepts an article URL, pasted text, text-based PDF, or location only. Set `BRAVE_SEARCH_API_KEY` for the default web discovery and `GEMINI_API_KEY` for model extraction. An experimental Google Search grounding provider can be selected with `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`, but requires account access and quota. Without usable search, results show partial coverage. ZIP search still calls the public Zippopotam.us service from the browser.
+The backend exposes `POST /api/estimate`, synchronous `POST /api/research` and `POST /api/research/pdf`, background `POST /api/research/jobs` and `POST /api/research/jobs/pdf`, `GET /api/research/jobs/{id}`, and `POST /api/research/scenario`; interactive API documentation is at <http://127.0.0.1:8000/docs>. The research panel uses background jobs and accepts an article URL, pasted text, PDF, or location only. With a seed article or document, users may provide up to five additional public source URLs. For article URLs, the backend also checks relevant links in the article. Scanned PDFs need `pdftoppm` (Poppler) and `tesseract` installed on the backend host. Set `BRAVE_SEARCH_API_KEY` for broader web discovery and `GEMINI_API_KEY` for model extraction. An experimental Google Search grounding provider can be selected with `RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`, but requires account access and quota. Without usable search, results show partial coverage even when supplied or linked sources are reviewed.
 
-Research claims and sources appear separately from the simulator's modeled estimates. See [research plan](docs/RESEARCH_PIPELINE_PLAN.md) and [evaluation](docs/RESEARCH_EVALUATION.md) for scope and current live-service limitations.
+Research claims and sources appear separately from the simulator's modeled estimates. A project-specific scenario needs explicit IT load and efficiency inputs; carbon stays unknown without a supplied grid factor. The map's ZIP search uses Zippopotam.us from the browser; research intake also resolves ZIPs through that service on the backend to find city/state search context while retaining ZIP-area precision. City research uses the public Nominatim service for an approximate city marker, with a backend cache and one-request-per-second limit. State-only results show no facility marker. The public Nominatim service has a [usage policy](https://operations.osmfoundation.org/policies/nominatim/) and must be replaced or self-hosted for heavier use. Background jobs are in-memory and need a persistent queue for multi-worker deployment. See [research plan](docs/RESEARCH_PIPELINE_PLAN.md) and [evaluation](docs/RESEARCH_EVALUATION.md) for scope and current live-service limitations.
 
 ## See API requests and results
 

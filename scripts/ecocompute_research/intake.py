@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from typing import Callable, Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, model_validator
 
 from .location import LocationInputError, parse_location
+from .html_text import ArticleLink
 from .models import Location, StrictModel
 from .pdf_text import MAX_PDF_BYTES, PdfTextError, extract_pdf_text
 from .url_fetch import FetchError, FetchedDocument, fetch_url
@@ -28,6 +30,7 @@ class IntakeRequest(StrictModel):
     article_url: str | None = None
     article_text: str | None = None
     pdf_bytes: bytes | None = None
+    additional_urls: list[str] = Field(default_factory=list, max_length=5)
 
     @model_validator(mode="after")
     def matching_input(self) -> IntakeRequest:
@@ -54,6 +57,16 @@ class IntakeRequest(StrictModel):
             raise ValueError("Article text exceeds 100,000 characters")
         if self.mode == "pdf" and (not self.pdf_bytes or len(self.pdf_bytes) > MAX_PDF_BYTES):
             raise ValueError("PDF is empty or exceeds the upload limit")
+        if self.mode == "manual_location" and self.additional_urls:
+            raise ValueError("Additional sources require a seed article or document")
+        for url in self.additional_urls:
+            try:
+                parts = urlsplit(url)
+                valid = parts.scheme in {"http", "https"} and bool(parts.hostname)
+            except ValueError:
+                valid = False
+            if len(url) > 2048 or not valid:
+                raise ValueError("Additional sources must be public HTTP or HTTPS URLs")
         return self
 
 
@@ -71,6 +84,7 @@ class IntakeResult(StrictModel):
     text: str | None = None
     article_url: str | None = None
     media_type: str | None = None
+    seed_links: list[ArticleLink] = Field(default_factory=list)
     warnings: list[IntakeWarning] = Field(default_factory=list)
 
 
@@ -132,4 +146,5 @@ def read_input(
     result.text = fetched.text
     result.article_url = fetched.url
     result.media_type = fetched.media_type
+    result.seed_links = list(fetched.links)
     return result

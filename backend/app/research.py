@@ -21,6 +21,7 @@ class ResearchJsonRequest(BaseModel):
     location: str = Field(min_length=1, max_length=160)
     article_url: str | None = None
     article_text: str | None = None
+    additional_urls: list[str] = Field(default_factory=list, max_length=5)
 
 
 def _research(request: IntakeRequest) -> ResearchResult:
@@ -40,12 +41,14 @@ def research_json(request: ResearchJsonRequest) -> ResearchResult:
 
 
 @router.post("/api/research/pdf", response_model=ResearchResult)
-def research_pdf(location: str = Form(...), file: UploadFile = File(...)) -> ResearchResult:
+def research_pdf(location: str = Form(...), file: UploadFile = File(...),
+                 additional_urls: list[str] = Form(default=[])) -> ResearchResult:
     if file.content_type not in {"application/pdf", "application/octet-stream"}:
         raise HTTPException(status_code=422, detail="Upload a PDF file")
     content = file.file.read(MAX_PDF_BYTES + 1)
     try:
-        intake = IntakeRequest(mode="pdf", location=location, pdf_bytes=content)
+        intake = IntakeRequest(mode="pdf", location=location, pdf_bytes=content,
+                               additional_urls=additional_urls)
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail="PDF or location is invalid or too large") from exc
     return _research(intake)

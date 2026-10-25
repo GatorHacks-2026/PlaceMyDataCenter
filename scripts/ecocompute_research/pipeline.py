@@ -5,13 +5,17 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from hashlib import sha256
 import os
+import re
 from typing import Callable
 from urllib.parse import urlsplit
 
 from pydantic import Field
 
 from .collection import CollectedSource, collect_sources
-from .discovery import BraveSearchProvider, SearchProvider, canonical_url, discover_sources
+from .discovery import (
+    BraveSearchProvider, SearchHit, SearchProvider, canonical_url,
+    discover_seed_links, discover_sources,
+)
 from .estimates import assess_scale
 from .fact_extractor import extract_facts
 from .gemini import GeminiFactExtractor
@@ -30,6 +34,7 @@ class ResearchConfig(StrictModel):
     hits_per_query: int = Field(default=8, ge=1, le=20)
     max_hits: int = Field(default=24, ge=1, le=100)
     max_sources: int = Field(default=10, ge=1, le=50)
+    max_linked_sources: int = Field(default=8, ge=1, le=20)
 
 
 def _seed_source(intake) -> CollectedSource | None:
@@ -89,10 +94,16 @@ def run_research(
                 project = item.project
                 key = (project.developer, project.location.city, project.location.state)
                 candidates[key] = project
+        search_unavailable = (request.mode == "manual_location" and not leads.hits and
+                              any("not_configured" in warning for warning in leads.warnings))
         return ResearchResult(
-            status=ResearchStatus.AMBIGUOUS if candidates else ResearchStatus.PARTIAL,
+            status=(ResearchStatus.AMBIGUOUS if candidates else
+                    ResearchStatus.FAILED if search_unavailable else ResearchStatus.PARTIAL),
             candidates=list(candidates.values()),
-            limitations=[identity.explanation, *limitations, *leads.warnings,
+            limitations=[*(
+                ["Location-only research needs a configured web-search provider. Add an article URL, pasted text, or PDF to research this project now."]
+                if search_unavailable else [identity.explanation]
+            ), *limitations, *leads.warnings,
                          "Search snippets are candidate leads, not reviewed project evidence."],
             **location_context,
         )
@@ -105,12 +116,30 @@ def run_research(
                              hits_per_query=config.hits_per_query,
                              max_hits=config.max_hits)
     seed_url = canonical_url(intake.article_url) if intake.article_url else None
-    additional = [hit for hit in leads.hits if canonical_url(hit.url) != seed_url]
+    explicit = [SearchHit(title=f"Additional source: {urlsplit(url).hostname}",
+                          url=url, query="user_additional_url")
+                for url in request.additional_urls]
+    linked = (discover_seed_links(intake.seed_links, intake.article_url, project,
+                                  max_links=config.max_linked_sources)
+              if intake.article_url else [])
+    additional = []
+    seen_urls = {seed_url} if seed_url else set()
+    for hit in [*explicit, *linked, *leads.hits]:
+        key = canonical_url(hit.url)
+        if key not in seen_urls:
+            additional.append(hit)
+            seen_urls.add(key)
     collection = collect_sources(additional, project, fetcher=fetcher,
                                  max_sources=config.max_sources)
-    collected.extend(collection.sources)
+    seed_text = re.sub(r"\s+", " ", intake.text or "").casefold()
+    for item in collection.sources:
+        if ((seed_url and item.source.url and canonical_url(str(item.source.url)) == seed_url) or
+                re.sub(r"\s+", " ", item.text).casefold() == seed_text):
+            collection.skipped[str(item.source.url)] = "Duplicate of the starting document"
+            continue
+        collected.append(item)
     limitations.extend(leads.warnings)
-    limitations.extend(collection.skipped.values())
+    limitations.extend(f"{url}: {reason}" for url, reason in collection.skipped.items())
 
     if gemini is None:
         gemini = GeminiFactExtractor()
@@ -125,7 +154,7 @@ def run_research(
     missing = find_missing_fields(claims, sources)
     complete = (intake.status == "ready" and leads.status.value == "complete" and
                 collection.status.value == "complete" and not facts.warnings and
-                bool(collection.sources) and bool(gemini.api_key))
+                len(collected) > (1 if seed else 0) and bool(gemini.api_key))
     status = ResearchStatus.COMPLETE if complete else ResearchStatus.PARTIAL
     summary = build_summary(project, sources, claims, reconciled.conflicts, missing, status)
     return ResearchResult(

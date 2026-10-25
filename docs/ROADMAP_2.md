@@ -1,5 +1,10 @@
 # Community Impact Pivot — Working Roadmap
 
+> Historical proposal plan for `community-impact-pivot`. The current research
+> implementation and its remaining acceptance work are in
+> [RESEARCH_PIPELINE_PLAN.md](RESEARCH_PIPELINE_PLAN.md). This roadmap is kept
+> intact as the record of the earlier direction.
+
 **Status:** Proposed direction; the full team has not adopted it yet.
 
 **Branch:** `community-impact-pivot`

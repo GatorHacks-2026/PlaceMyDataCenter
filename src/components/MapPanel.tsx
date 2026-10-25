@@ -6,6 +6,7 @@ import { type Location } from '../data/demo'
 interface MapPanelProps {
   locations: Location[]
   selectedId: string
+  viewCenter?: { lat: number; lng: number; zoom: number } | null
   onSelect: (location: Location) => void
 }
 
@@ -66,6 +67,7 @@ function projectToSvg(lat: number, lng: number): { x: number; y: number } {
 export default function MapPanel({
   locations,
   selectedId,
+  viewCenter,
   onSelect,
 }: MapPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -177,10 +179,12 @@ export default function MapPanel({
       el.style.transform = active ? 'scale(1.25)' : 'scale(1)'
     })
     const sel = locationsRef.current.find((l) => l.id === selectedId)
-    if (sel && mapRef.current) {
+    if (viewCenter && mapRef.current) {
+      mapRef.current.easeTo({ center: [viewCenter.lng, viewCenter.lat], zoom: viewCenter.zoom, duration: 800 })
+    } else if (sel && mapRef.current) {
       mapRef.current.easeTo({ center: [sel.lng, sel.lat], zoom: 5, duration: 800 })
     }
-  }, [selectedId, useFallback])
+  }, [selectedId, viewCenter, useFallback])
 
   // Fallback 2D Vector Map when WebGL is unavailable or user chooses 2D mode
   if (useFallback) {

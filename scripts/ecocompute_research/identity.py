@@ -24,10 +24,16 @@ PLACE_PATTERN = re.compile(
     rf"\b(?:in|near|at|outside|around)\s+(?P<place>[A-Z][A-Za-z .'-]{{1,45}}?),\s*(?P<state>{STATE_PATTERN})\b",
     re.I,
 )
+STATE_ONLY_CITY_PATTERN = re.compile(
+    r"\b(?:in|near|at|outside|around)\s+"
+    r"(?:(?:northeast|northwest|southeast|southwest|north|south|east|west|central)\s+)?"
+    r"(?P<city>[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=\s+[a-z]|[.,;]|$)"
+)
 PROJECT_NAME_PATTERN = re.compile(r"\bProject\s+([A-Z][A-Za-z0-9-]{2,35})\b")
 ALIAS_PATTERN = re.compile(r"\balso\s+known\s+as\s+([A-Z][A-Za-z0-9 .'-]{2,50}?)(?:,|\s+is\b|\s+will\b|\.)", re.I)
 OPERATOR_PATTERN = re.compile(r"\boperated\s+by\s+([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,4})\b")
 DEVELOPER_PATTERNS = (
+    re.compile(r"\b([A-Z][A-Za-z0-9&.'-]{1,40})['’]s\s+(?:\$[\d,.]+\s+(?:billion|million),?\s*)?(?:\d+(?:,\d{3})*(?:\.\d+)?[- ](?:MW|GW|megawatt|gigawatt)\s*)?data\s+cent(?:er|re)\b", re.I),
     re.compile(r"\b([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,4})['’]s\s+(?:planned|proposed|new|existing|\d[\d,]*[- ](?:MW|megawatt))?\s*(?:data\s+cent(?:er|re)|campus)", re.I),
     re.compile(r"^\s*([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,4})\s+(?:also\s+)?(?:has\s+)?(?:says|said|announced|planned|proposed|plans|proposes|will\s+build|is\s+building)\b"),
     re.compile(r"\b(?:developed|owned|proposed)\s+by\s+([A-Z][A-Za-z0-9&.'-]*(?:\s+[A-Z][A-Za-z0-9&.'-]*){0,4})\b"),
@@ -143,6 +149,40 @@ def identify_project(text: str | None, location_hint: Location) -> Identificatio
             if old is None or candidate.match_score > old.match_score:
                 found[key] = candidate
 
+    if location_hint.precision == LocationPrecision.STATE and location_hint.state:
+        # A source may say "in northeast El Paso" and mention Texas in the
+        # same sentence, without the "El Paso, TX" syntax above. Resolve a
+        # state-only hint only when a developer and a city are both explicit.
+        state_name = next((name for name, code in STATE_NAMES.items()
+                           if code == location_hint.state), None)
+        state_tokens = [location_hint.state, *([state_name] if state_name else [])]
+        for sentence in _sentences(text):
+            if not PROJECT_WORDS.search(sentence):
+                continue
+            developer = _developer(sentence)
+            if not developer or not any(
+                re.search(rf"\b{re.escape(token)}\b", sentence, re.I)
+                for token in state_tokens
+            ):
+                continue
+            for match in STATE_ONLY_CITY_PATTERN.finditer(sentence):
+                city = match.group("city")
+                if city.casefold() in STATE_NAMES or city.upper() in STATE_NAMES.values():
+                    continue
+                location = Location(city=city, state=location_hint.state,
+                                    precision=LocationPrecision.CITY)
+                key = (city.casefold(), location_hint.state, developer.casefold())
+                found.setdefault(key, ProjectCandidate(
+                    project=ProjectIdentity(
+                        name=f"{developer} {city} data center", developer=developer,
+                        location=location,
+                        phase=ProjectPhase.PROPOSED if re.search(
+                            r"\b(?:proposed|planned|will build)\b", sentence, re.I
+                        ) else ProjectPhase.UNKNOWN,
+                    ),
+                    evidence_excerpt=sentence[:500], match_score=30,
+                ))
+
     candidates = sorted(found.values(), key=lambda item: item.match_score, reverse=True)
     matches = [item for item in candidates if item.match_score > 0]
     if not matches and location_hint.city and location_hint.state:
@@ -175,6 +215,16 @@ def identify_project(text: str | None, location_hint: Location) -> Identificatio
                     project=project, evidence_excerpt=sentence[:500], match_score=80)
             matches = list(fallback.values())
             candidates.extend(matches)
+    # Headlines often describe the same site without naming its developer.
+    # A generic mention at the same place is not a second project.
+    named = [item for item in matches if item.project.developer]
+    if len(named) == 1 and all(
+        not item.project.developer and
+        item.project.location.city == named[0].project.location.city and
+        item.project.location.state == named[0].project.location.state
+        for item in matches if item is not named[0]
+    ):
+        matches = named
     if len(matches) == 1:
         return IdentificationResult(
             status=IdentificationStatus.SELECTED,

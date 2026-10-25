@@ -1,5 +1,10 @@
 # Community Impact Pivot — Progress Log
 
+> Historical progress through the initial pivot planning. For the implemented
+> research pipeline and latest verification, see
+> [RESEARCH_EVALUATION.md](RESEARCH_EVALUATION.md) and
+> [web_progress.md](web_progress.md).
+
 **Started:** 2026-10-24
 
 **Status:** Planning and contract alignment; no pivot features implemented yet.

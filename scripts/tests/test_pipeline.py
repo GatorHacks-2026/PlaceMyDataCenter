@@ -2,6 +2,7 @@
 
 from scripts.ecocompute_research.discovery import SearchHit
 from scripts.ecocompute_research.gemini import GeminiFactExtractor
+from scripts.ecocompute_research.html_text import ArticleLink
 from scripts.ecocompute_research.intake import IntakeRequest
 from scripts.ecocompute_research.models import ResearchStatus
 from scripts.ecocompute_research.pipeline import ResearchConfig, run_research
@@ -73,6 +74,128 @@ def test_unavailable_search_is_partial_even_when_article_has_a_fact():
     assert any("provider_error" in note for note in result.limitations)
 
 
+def test_el_paso_pipeline_keeps_gas_generation_out_of_facility_capacity():
+    class Down:
+        def search(self, query, *, count):
+            from scripts.ecocompute_research.discovery import SearchError
+            raise SearchError("provider_error", "Unavailable")
+
+    result = run_research(
+        IntakeRequest(mode="text", location="El Paso, TX", article_text=(
+            "Meta plans a 1-gigawatt data center in El Paso, Texas. "
+            "El Paso Electric proposed a 366-megawatt natural gas facility "
+            "to power Meta's data center in El Paso."
+        )),
+        provider=Down(), gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert result.status == ResearchStatus.PARTIAL
+    assert {(claim.field, claim.value) for claim in result.claims if claim.unit == "MW"} == {
+        ("electricity.capacity_mw", 1000),
+        ("energy_plan.gas_generation_capacity_mw", 366),
+    }
+    assert result.conflicts == []
+
+
+def test_texas_with_el_paso_article_identifies_project_and_keeps_seed():
+    class NoSearch:
+        def search(self, query, *, count):
+            return []
+
+    result = run_research(
+        IntakeRequest(mode="url", location="Texas",
+                      article_url="https://example.com/el-paso-meta"),
+        provider=NoSearch(), fetcher=lambda url: FetchedDocument(
+            url=url, media_type="text/plain", text=(
+                "While Texas officials paused permits, Meta's $10 billion, "
+                "1-gigawatt data center in northeast El Paso moved ahead."
+            )), gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert result.project.developer == "Meta"
+    assert result.project.location.city == "El Paso"
+    assert len(result.sources) == 1
+    assert any(claim.field == "electricity.capacity_mw" and claim.value == 1000
+               for claim in result.claims)
+
+
+def test_location_only_without_search_provider_explains_next_step():
+    class NoKey:
+        def search(self, query, *, count):
+            from scripts.ecocompute_research.discovery import SearchError
+            raise SearchError("not_configured", "BRAVE_SEARCH_API_KEY is not configured")
+
+    result = run_research(
+        IntakeRequest(mode="manual_location", location="Texas"),
+        provider=NoKey(), config=ResearchConfig(max_queries=1),
+    )
+    assert result.status == ResearchStatus.FAILED
+    assert "Add an article URL" in result.limitations[0]
+
+
+def test_explicit_and_article_link_sources_work_without_search_key():
+    class Down:
+        def search(self, query, *, count):
+            from scripts.ecocompute_research.discovery import SearchError
+            raise SearchError("not_configured", "No search key")
+
+    seed_url = "https://news.example/pine-island"
+    city_url = "https://city.example.gov/project"
+    utility_url = "https://utility.example.com/filing"
+    fetched = []
+
+    def fetch(url):
+        fetched.append(url)
+        if url == seed_url:
+            return FetchedDocument(url=url, media_type="text/html", text=(
+                "Google plans a 780 MW data center in Pine Island, Minnesota."
+            ), links=(
+                ArticleLink(city_url, "city project page",
+                            "Pine Island city page about Google's data center."),
+                ArticleLink(utility_url, "utility filing",
+                            "Pine Island utility filing for Google's data center."),
+            ))
+        if url == city_url:
+            text = "Google proposed a data center in Pine Island, MN. The city reviewed the site."
+        else:
+            text = "Google proposed a data center in Pine Island, MN. The utility reviewed service."
+        return FetchedDocument(url=url, media_type="text/plain", text=text)
+
+    result = run_research(
+        IntakeRequest(mode="url", location="Pine Island, MN", article_url=seed_url,
+                      additional_urls=[city_url]),
+        provider=Down(), fetcher=fetch, gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert result.status == ResearchStatus.PARTIAL
+    assert {str(source.url) for source in result.sources} == {seed_url, city_url, utility_url}
+    assert fetched == [seed_url, city_url, utility_url]
+    assert any("not_configured" in note for note in result.limitations)
+
+
+def test_additional_url_redirecting_to_seed_is_not_a_second_source():
+    class Down:
+        def search(self, query, *, count):
+            from scripts.ecocompute_research.discovery import SearchError
+            raise SearchError("not_configured", "No search key")
+
+    seed_url = "https://example.com/project"
+    def fetch(url):
+        return FetchedDocument(
+            url=seed_url, media_type="text/plain",
+            text="Google plans a 780 MW data center in Pine Island, Minnesota.",
+        )
+
+    result = run_research(
+        IntakeRequest(mode="url", location="Pine Island, MN", article_url=seed_url,
+                      additional_urls=["https://example.com/redirect-to-project"]),
+        provider=Down(), fetcher=fetch, gemini=GeminiFactExtractor(api_key=""),
+        config=ResearchConfig(max_queries=1),
+    )
+    assert len(result.sources) == 1
+    assert any("Duplicate of the starting document" in note for note in result.limitations)
+
+
 def test_second_state_project_keeps_unrelated_search_result_out():
     class MixedProvider:
         def search(self, query, *, count):
@@ -140,7 +263,7 @@ def test_gemini_search_is_explicit_opt_in(monkeypatch):
                       article_text="Google proposes a data center in Pine Island, MN."),
         fetcher=lambda url: FetchedDocument(
             url=url, media_type="text/plain",
-            text="Google proposes a data center in Pine Island, MN."),
+            text="Google proposes a data center in Pine Island, MN. The utility filed a service plan."),
         gemini=GeminiFactExtractor(api_key=""),
         config=ResearchConfig(max_queries=1),
     )

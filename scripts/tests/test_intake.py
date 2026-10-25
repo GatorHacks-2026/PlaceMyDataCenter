@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from scripts.ecocompute_research.intake import IntakeError, IntakeRequest, read_input
+from scripts.ecocompute_research.html_text import ArticleLink
 from scripts.ecocompute_research.location import LocationInputError, parse_location
 from scripts.ecocompute_research.models import LocationPrecision
 from scripts.ecocompute_research.pdf_text import PdfTextError, extract_pdf_text
@@ -61,6 +62,15 @@ def test_request_mode_matches_exactly_one_input():
         IntakeRequest(mode="pdf", location="MN", pdf_bytes=b"")
     with pytest.raises(ValidationError):
         IntakeRequest(mode="manual_location", location="MN", article_text="extra")
+    with pytest.raises(ValidationError):
+        IntakeRequest(mode="manual_location", location="MN",
+                      additional_urls=["https://example.gov/project"])
+    with pytest.raises(ValidationError):
+        IntakeRequest(mode="text", location="MN", article_text="Project document",
+                      additional_urls=["http://localhost/private"] * 6)
+    with pytest.raises(ValidationError):
+        IntakeRequest(mode="text", location="MN", article_text="Project document",
+                      additional_urls=["not a URL"])
 
 
 def test_text_and_location_only_paths_do_not_call_network():
@@ -146,7 +156,25 @@ def test_html_fetch_strips_navigation_and_obeys_body_limit():
                       max_body_bytes=20)
 
 
+def test_html_fetch_retains_article_links_but_not_navigation_links():
+    html = ('<nav><p><a href="https://example.com/menu">Menu</a></p></nav>'
+            '<article><p>El Paso officials linked the '
+            '<a href="https://example.gov/project">project filing</a> '
+            'for the Meta data center in El Paso.</p></article>')
+
+    with httpx.Client(transport=httpx.MockTransport(
+        lambda _request: httpx.Response(200, headers={"Content-Type": "text/html"}, content=html),
+    )) as client:
+        fetched = fetch_url("https://example.com/story", client=client, resolver=PUBLIC_DNS)
+    assert fetched.links == (ArticleLink(
+        href="https://example.gov/project", label="project filing",
+        context="El Paso officials linked the project filing for the Meta data center in El Paso.",
+    ),)
+
+
 def test_pdf_route_extracts_pages_and_scanned_pdf_is_partial(monkeypatch):
+    from scripts.ecocompute_research import pdf_text
+    monkeypatch.setattr(pdf_text.shutil, "which", lambda _name: None)
     class FakeReader:
         is_encrypted = False
         pages = [SimpleNamespace(extract_text=lambda: "Project summary"),
@@ -197,3 +225,20 @@ def test_real_text_pdf_when_dependency_is_installed():
     ))
     assert result.text == "Pine Island data center"
     assert result.status == "ready"
+
+
+def test_image_only_pdf_uses_ocr_when_available(monkeypatch):
+    from scripts.ecocompute_research import pdf_text
+    from pypdf import PdfWriter
+
+    writer = PdfWriter()
+    writer.add_blank_page(width=612, height=792)
+    output = BytesIO()
+    writer.write(output)
+    monkeypatch.setattr(pdf_text.shutil, "which", lambda _name: "/usr/bin/mock")
+
+    def run(args, **_kwargs):
+        return SimpleNamespace(stdout="Meta data center in El Paso, Texas" if args[0] == "tesseract" else "")
+
+    monkeypatch.setattr(pdf_text.subprocess, "run", run)
+    assert pdf_text.extract_pdf_text(output.getvalue()) == "Meta data center in El Paso, Texas"

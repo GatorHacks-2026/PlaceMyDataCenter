@@ -64,7 +64,7 @@ export default function ConfigPanel({
       {/* Selected location */}
       <div>
         <p className="text-xs uppercase tracking-wider text-slate-400">
-          Selected Location
+          Simulator location
         </p>
         <div className="mt-1 flex items-center gap-2">
           <h2 className="text-xl font-semibold text-white">

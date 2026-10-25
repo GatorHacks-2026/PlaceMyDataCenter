@@ -68,6 +68,26 @@ def test_same_city_two_companies_stays_ambiguous():
     assert {item.project.developer for item in result.candidates} == {"Google", "Amazon"}
 
 
+def test_state_hint_finds_article_city_when_not_followed_by_state():
+    text = ("While Texas officials paused permits, Meta's $10 billion, 1-gigawatt "
+            "data center in northeast El Paso is moving ahead.")
+    result = identify_project(text, parse_location("Texas"))
+    assert result.status == IdentificationStatus.SELECTED
+    assert result.selected.developer == "Meta"
+    assert result.selected.location.city == "El Paso"
+    assert result.selected.location.state == "TX"
+
+
+def test_state_hint_does_not_choose_between_distinct_projects():
+    text = (
+        "Texas officials reviewed Meta's data center in northeast El Paso. "
+        "Texas officials also reviewed Amazon's data center in Dallas."
+    )
+    result = identify_project(text, parse_location("Texas"))
+    assert result.status == IdentificationStatus.AMBIGUOUS
+    assert {item.project.location.city for item in result.candidates} == {"El Paso", "Dallas"}
+
+
 def test_location_mismatch_and_generic_grid_article_do_not_invent_project():
     mismatch = identify_project(
         "Google announced a data center in Hermantown, MN.",

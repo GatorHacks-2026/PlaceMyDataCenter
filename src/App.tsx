@@ -13,6 +13,7 @@ import {
   type Location,
 } from './data/demo'
 import { requestEstimate } from './data/estimate'
+import { type ResearchResult } from './data/research'
 import {
   geocodeUsZip,
   ZipNotFoundError,
@@ -39,6 +40,10 @@ export default function App() {
   const analysisAbortRef = useRef<AbortController | null>(null)
   // True when the config changed since the last successful Analyze.
   const [stale, setStale] = useState(false)
+  const [researchMapNote, setResearchMapNote] = useState<string | null>(null)
+  const [researchUnmapped, setResearchUnmapped] = useState(false)
+  const [researchViewCenter, setResearchViewCenter] = useState<{lat: number; lng: number; zoom: number} | null>(null)
+  const mapRequestRef = useRef(0)
 
   const markStale = () => {
     analysisAbortRef.current?.abort()
@@ -100,6 +105,9 @@ export default function App() {
     )
     setLocation(loc)
     setProposedLocation(loc.id.slice(4))
+    setResearchMapNote(null)
+    setResearchUnmapped(false)
+    setResearchViewCenter(null)
     markStale()
   }
 
@@ -135,6 +143,73 @@ export default function App() {
     void runAnalysis({ location, capacityMW: capacity, utilization, cooling })
   }
 
+  const handleResearchResult = async (research: ResearchResult) => {
+    const requestId = ++mapRequestRef.current
+    const place = research.project?.location ?? research.location_hint
+    if (!place) return
+    if (place.zip_code) {
+      try {
+        const loc = await geocodeUsZip(place.zip_code)
+        if (mapRequestRef.current === requestId) {
+          setSearchedLocations(prev => prev.some(item => item.id === loc.id) ? prev : [...prev, loc])
+          setLocation(loc)
+          setResearchUnmapped(false)
+          setResearchViewCenter(null)
+          setResearchMapNote(`Map shows the approximate ZIP ${place.zip_code} center, not the facility address.`)
+          markStale()
+        }
+      } catch {
+        if (mapRequestRef.current === requestId) setResearchMapNote('Research ZIP could not be placed on the map.')
+      }
+      return
+    }
+    if (!place.city || !place.state) {
+      setResearchUnmapped(true)
+      setResearchViewCenter(null)
+      setResearchMapNote(`Research area: ${place.state || 'location unresolved'}. No facility marker is selected for this broad result.`)
+      markStale()
+      if (place.state) {
+        try {
+          const response = await fetch(`/api/research/geocode?${new URLSearchParams({state: place.state})}`)
+          if (!response.ok) throw new Error('State lookup failed')
+          const point = await response.json() as { latitude: number; longitude: number }
+          if (mapRequestRef.current === requestId) {
+            setResearchViewCenter({lat: point.latitude, lng: point.longitude, zoom: 4})
+            setResearchMapNote(`Research area: ${place.state}. Map centered approximately on the state (© OpenStreetMap contributors); no facility marker is selected.`)
+          }
+        } catch {
+          // The broad-area label remains visible without a map coordinate.
+        }
+      }
+      return
+    }
+    try {
+      const params = new URLSearchParams({ city: place.city, state: place.state })
+      const response = await fetch(`/api/research/geocode?${params}`)
+      if (!response.ok) throw new Error('City lookup failed')
+      const point = await response.json() as { latitude: number; longitude: number }
+      if (mapRequestRef.current !== requestId) return
+      const loc: Location = {
+        id: `research-${place.city.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${place.state}`,
+        name: place.city, state: place.state, lat: point.latitude, lng: point.longitude,
+        gridFactorKgPerMWh: 400, droughtRisk: 'Unknown', source: 'search',
+      }
+      setSearchedLocations(prev => [...prev.filter(item => item.id !== loc.id), loc])
+      setLocation(loc)
+      setResearchUnmapped(false)
+      setResearchViewCenter(null)
+      setResearchMapNote(`Map shows the approximate center of ${place.city}, ${place.state} (© OpenStreetMap contributors), not the facility address.`)
+      markStale()
+    } catch {
+      if (mapRequestRef.current === requestId) {
+        setResearchUnmapped(true)
+        setResearchViewCenter(null)
+        setResearchMapNote(`Research location ${place.city}, ${place.state} could not be placed on the map.`)
+        markStale()
+      }
+    }
+  }
+
   return (
     <div className="min-h-full bg-navy-900">
       <div className="mx-auto flex min-h-full max-w-7xl flex-col gap-6 p-4 md:p-6">
@@ -157,6 +232,7 @@ export default function App() {
         {/* Main split: map (60%) + config (40%) */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
           <div className="min-h-[320px] lg:col-span-3 lg:min-h-[520px]">
+            {researchMapNote && <p className="mb-2 rounded border border-teal-accent/25 bg-navy-800 p-2 text-xs text-slate-300">{researchMapNote}</p>}
             <ErrorBoundary
               fallback={
                 <div className="flex h-full min-h-[460px] flex-col items-center justify-center rounded-xl border border-navy-600 bg-navy-800 p-6 text-center text-slate-300">
@@ -167,10 +243,14 @@ export default function App() {
             >
               <MapPanel
                 locations={allLocations}
-                selectedId={location.id}
+                selectedId={researchUnmapped ? '' : location.id}
+                viewCenter={researchViewCenter}
                 onSelect={(loc) => {
                   setLocation(loc)
-                  changeProposedLocation(loc.source === 'search' ? loc.id.slice(4) : `${loc.name}, ${loc.state}`)
+                  changeProposedLocation(loc.id.startsWith('zip-') ? loc.id.slice(4) : `${loc.name}, ${loc.state}`)
+                  setResearchMapNote(null)
+                  setResearchUnmapped(false)
+                  setResearchViewCenter(null)
                   markStale()
                 }}
               />
@@ -181,6 +261,7 @@ export default function App() {
               <ResearchPanel
                 location={proposedLocation}
                 onLocationChange={changeProposedLocation}
+                onResearchResult={handleResearchResult}
               />
             </div>
             <ConfigPanel
@@ -214,7 +295,11 @@ export default function App() {
         </div>
 
         {/* Bottom metrics */}
-        <MetricsPanel result={result} />
+        <section aria-label="Illustrative simulator">
+          <h2 className="mb-2 text-sm font-semibold text-white">Illustrative simulator</h2>
+          <p className="mb-3 text-xs text-slate-400">These cards use selected simulator inputs and demo regional factors. They are separate from the sourced project claims and the explicit project scenario above.</p>
+          <MetricsPanel result={stale ? null : result} />
+        </section>
 
         <footer className="pt-2 text-center text-[11px] text-slate-600">
           Figures are MODELED estimates from documented engineering assumptions.

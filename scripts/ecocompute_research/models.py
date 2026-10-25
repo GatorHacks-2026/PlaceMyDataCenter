@@ -72,6 +72,7 @@ class LocationPrecision(str, Enum):
 
 class ClaimSubject(str, Enum):
     DATA_CENTER = "data_center"
+    GAS_GENERATION = "gas_generation"
     WIND_GENERATION = "wind_generation"
     SOLAR_GENERATION = "solar_generation"
     BATTERY_STORAGE = "battery_storage"
@@ -174,9 +175,14 @@ class Claim(StrictModel):
     def coherent_claim(self) -> Claim:
         field_subjects = {
             "electricity.capacity_mw": ClaimSubject.DATA_CENTER,
+            "energy_plan.gas_generation_capacity_mw": ClaimSubject.GAS_GENERATION,
             "energy_plan.wind_capacity_mw": ClaimSubject.WIND_GENERATION,
             "energy_plan.solar_capacity_mw": ClaimSubject.SOLAR_GENERATION,
             "energy_plan.battery_power_mw": ClaimSubject.BATTERY_STORAGE,
+            "water.maximum_allocation_gpd": ClaimSubject.WATER_SYSTEM,
+            "water.average_allocation_gpd": ClaimSubject.WATER_SYSTEM,
+            "financial.infrastructure_development_usd": ClaimSubject.FINANCIAL,
+            "financial.project_value_usd": ClaimSubject.FINANCIAL,
         }
         expected_subject = field_subjects.get(self.field)
         if expected_subject is not None and self.subject != expected_subject:

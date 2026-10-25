@@ -1,44 +1,44 @@
 # Research scripts
 
-The EcoCompute research package is `scripts/ecocompute_research/`. Its file
-responsibilities and step-by-step implementation order are in
-[`docs/RESEARCH_PIPELINE_PLAN.md`](../docs/RESEARCH_PIPELINE_PLAN.md).
+`scripts/ecocompute_research/` is the research pipeline used by the FastAPI
+routes in `backend/app/research.py`. It accepts a location with an article URL,
+pasted text, a text-based PDF, or no seed document. A seed document can include
+up to five additional public source URLs; article pages also supply relevant
+outgoing links as candidate sources. Each candidate is fetched and checked
+before it becomes reviewed evidence. The JSON route is `POST /api/research`;
+PDF upload uses `POST /api/research/pdf` with repeatable `additional_urls` form
+fields.
 
-Point 1 contains evidence models (`models.py`), an offline Pine Island fixture
-(`fixtures.py`), and a conservative flat contract adapter (`legacy.py`). It
-does not run research yet. Point 2 adds validated intake (`intake.py`), place
-parsing (`location.py`), bounded URL fetching (`url_fetch.py`), HTML cleaning
-(`html_text.py`), and text PDF extraction (`pdf_text.py`). URL access failures
-return a partial intake result. This code is not connected to FastAPI yet.
-The current FastAPI application
-remains in `backend/app/`; the supplied prototype remains at
-`/Users/jaysuryaray/Downloads/input_extractor.py` until later steps integrate
-its reusable parts.
+The flow is `intake` → project `identity` → web `discovery` and `collection` →
+source-linked `fact_extractor` → `reconciliation` → `report`. `models.py` defines
+the versioned result contract. `legacy.py` provides a conservative adapter for
+older flat `activeSite` consumers. The original standalone extractor was a
+baseline, not a dependency of these routes.
 
-Point 3 adds `identity.py`, which extracts location-matched project candidates
-from seed text and returns ambiguity when the input does not identify one site.
+`intake.py` parses the supplied location and reads the seed text. A ZIP is
+resolved by `zip_lookup.py` to city/state search context using Zippopotam.us;
+the result keeps the submitted ZIP and ZIP-area precision. URL fetching and PDF
+text extraction have size and access limits. Image-only pages use local
+`pdftoppm` and `tesseract` when both are installed (up to 20 OCR pages); absent
+OCR tools still yield a partial no-text result for fully scanned files.
 
-Point 4 adds `discovery.py` and `collection.py`. Set `BRAVE_SEARCH_API_KEY` in
-the environment to use the Brave Web Search API. Without it, discovery returns
-a partial result with no invented URLs. Search and collection limits are
-arguments to their entry functions. A live provider check still requires a key.
+Broader discovery uses Brave when `BRAVE_SEARCH_API_KEY` is configured. An experimental
+Gemini Google Search provider can be selected with
+`RESEARCH_SEARCH_PROVIDER=gemini` and `GEMINI_SEARCH_MODEL`; it requires a model
+and grounding quota that actually work for the account. Extraction can use
+`GEMINI_API_KEY` and `GEMINI_MODEL`, otherwise it falls back to deliberately
+limited deterministic rules. Without usable search, results remain partial
+even when explicit or article-linked sources were reviewed.
 
-Point 5 adds conservative regex extraction (`facts.py`) and optional Gemini
-extraction (`gemini.py`), coordinated by `fact_extractor.py`. Set
-`GEMINI_API_KEY` to enable it; `GEMINI_MODEL` selects the model and defaults to
-`gemini-3.8-flash`. Each retained claim cites an excerpt from its source.
-
-Point 6 adds `reconciliation.py`, `estimates.py`, and `report.py` for conflict
-preservation, provisional capacity proxies, missing-field questions, and a
-source-linked summary.
-
-From the repository root, after installing `backend/requirements-dev.txt`, run:
+Install `backend/requirements-dev.txt`, then run from the repository root:
 
 ```sh
-python -m pytest scripts/tests -q
+PYTHONPATH=backend python -m pytest scripts/tests backend/tests -q
 ```
 
-For example, `read_input(IntakeRequest(mode="text", location="Pine Island, MN",
-article_text="..."))` returns the seed text and a city-level location with
-unknown coordinates. The URL and PDF modes need the dependencies listed in
-`backend/requirements.txt`.
+The latest recorded suite passed 100 Python tests. The ZIP research path was
+also checked in the browser with `55963` plus Pine Island seed text. See
+[`docs/RESEARCH_EVALUATION.md`](../docs/RESEARCH_EVALUATION.md) for the remaining
+live-service and extraction defects, and
+[`docs/RESEARCH_PIPELINE_PLAN.md`](../docs/RESEARCH_PIPELINE_PLAN.md) for the
+stage contracts and acceptance cases.

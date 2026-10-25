@@ -53,6 +53,7 @@ def _format_claim(claim: Claim) -> str:
     unit = f" {claim.unit}" if claim.unit else ""
     kind = f" ({claim.capacity_kind.value} capacity)" if claim.capacity_kind else ""
     context = f"; phase: {claim.phase_label}" if claim.phase_label else ""
+    context += f"; basis: {claim.basis}" if claim.basis else ""
     citations = ", ".join(f"[{ref.source_id}]" for ref in claim.evidence)
     if claim.status == EvidenceStatus.ESTIMATED:
         citations = "; ".join(claim.assumptions)

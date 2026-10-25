@@ -5,8 +5,10 @@ import httpx
 from scripts.ecocompute_research.collection import CollectionStatus, collect_sources
 from scripts.ecocompute_research.discovery import (
     BraveSearchProvider, DiscoveryStatus, SearchError, SearchHit,
-    discover_sources, make_queries,
+    discover_seed_links, discover_sources, make_queries,
 )
+from scripts.ecocompute_research.html_text import ArticleLink
+from scripts.ecocompute_research.models import Location, LocationPrecision, ProjectIdentity
 from scripts.ecocompute_research.fixtures import pine_island_contract_fixture
 from scripts.ecocompute_research.url_fetch import FetchError, FetchedDocument
 
@@ -78,6 +80,34 @@ def test_discovery_deduplicates_urls_and_rejects_other_facility():
     assert result.status == DiscoveryStatus.COMPLETE
     assert len(result.hits) == 1
     assert "pine" in result.hits[0].url
+
+
+def test_seed_links_are_bounded_project_specific_leads():
+    links = [
+        ArticleLink("/filing", "utility filing",
+                    "Pine Island officials discussed Google's data center filing."),
+        ArticleLink("https://example.com/other", "other project",
+                    "Hermantown officials discussed a different data center."),
+        ArticleLink("/filing?utm_source=article", "same filing",
+                    "Google data center in Pine Island, MN."),
+    ]
+    hits = discover_seed_links(links, "https://example.com/story", PROJECT)
+    assert len(hits) == 1
+    assert hits[0].url == "https://example.com/filing"
+    assert hits[0].query == "seed_article_link"
+
+
+def test_city_only_link_lead_requires_project_topic():
+    project = ProjectIdentity(location=Location(
+        city="El Paso", state="TX", precision=LocationPrecision.CITY,
+    ))
+    hits = discover_seed_links([
+        ArticleLink("https://signal.me/contact", "Contact the reporter",
+                    "Our reporter works in El Paso, Texas."),
+        ArticleLink("https://example.gov/filing", "commission decision",
+                    "El Paso Electric asked the commission to approve a gas plant."),
+    ], "https://example.com/story", project)
+    assert [hit.url for hit in hits] == ["https://example.gov/filing"]
 
 
 def test_collection_keeps_matching_source_and_rejects_unrelated_text():

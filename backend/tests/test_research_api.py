@@ -27,6 +27,20 @@ def test_json_modes_route_to_pipeline(monkeypatch):
     assert [request.mode for request in seen] == ["url", "text", "manual_location"]
 
 
+def test_json_forwards_additional_source_urls(monkeypatch):
+    seen = []
+    monkeypatch.setattr("app.research.run_research", lambda request: (
+        seen.append(request) or pine_island_contract_fixture()
+    ))
+    response = client.post("/api/research", json={
+        "mode": "url", "location": "Pine Island, MN",
+        "article_url": "https://example.com/story",
+        "additional_urls": ["https://example.gov/project"],
+    })
+    assert response.status_code == 200
+    assert seen[0].additional_urls == ["https://example.gov/project"]
+
+
 def test_json_rejects_wrong_mode_payload():
     response = client.post("/api/research", json={
         "mode": "manual_location", "location": "MN", "article_url": "https://example.com",
@@ -46,6 +60,18 @@ def test_pdf_upload_routes_binary_to_pipeline(monkeypatch):
     assert response.status_code == 200
     assert seen[0].mode == "pdf"
     assert seen[0].pdf_bytes == b"%PDF-1.4 test"
+
+
+def test_pdf_upload_forwards_additional_source_urls(monkeypatch):
+    seen = []
+    monkeypatch.setattr("app.research.run_research", lambda request: (
+        seen.append(request) or pine_island_contract_fixture()
+    ))
+    response = client.post("/api/research/pdf", data={
+        "location": "MN", "additional_urls": ["https://example.gov/one", "https://example.gov/two"],
+    }, files={"file": ("source.pdf", b"%PDF-1.4 test", "application/pdf")})
+    assert response.status_code == 200
+    assert seen[0].additional_urls == ["https://example.gov/one", "https://example.gov/two"]
 
 
 def test_pdf_upload_rejects_non_pdf_type():

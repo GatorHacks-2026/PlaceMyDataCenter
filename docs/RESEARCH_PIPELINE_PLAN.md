@@ -1,8 +1,11 @@
 # EcoCompute research pipeline plan
 
-**Status:** Points 1–7 implemented; point 8 offline evaluation complete. Live
-article intake has been exercised, but multi-source discovery and extraction
-accuracy still need acceptance work.
+**Status (2026-10-25):** Points 1–7 are implemented, including background
+research jobs, local PDF OCR, a separate project scenario, and approximate
+city/state map placement. Point 8 has 100 passing Python tests, eight frontend
+tests, a production build, and live Pine Island and two-source El Paso checks.
+Broader automatic discovery and recall across more projects remain unverified
+without a working search subscription.
 
 An optional Gemini Google Search provider was added after point 8. It is
 explicitly selected with `RESEARCH_SEARCH_PROVIDER=gemini`; it is not a
@@ -11,7 +14,7 @@ validated replacement for Brave yet because the tested account cannot use
 
 ## Goal
 
-Given a location and an article URL, pasted text, or a text-based PDF, identify the
+Given a location and an article URL, pasted text, or a PDF, identify the
 specific US data center project; discover relevant public sources; extract and
 reconcile source-backed claims; and return a cited summary and structured result.
 Location-only input should return candidate projects when a single project cannot
@@ -22,6 +25,14 @@ This plan extends the existing React/FastAPI application. The current
 `POST /api/research` and `POST /api/research/pdf` endpoints now expose the
 research pipeline. The simulator's demo assumptions must never be presented
 as facts about a researched project.
+
+The frontend now uses background `/api/research/jobs` endpoints with polling.
+An explicit `/api/research/scenario` route computes modeled energy and water
+only from user-entered IT capacity, utilization, PUE, and WUE. The optional
+carbon result also requires a user-entered grid emissions factor. City map
+placement uses an approximate, cached, rate-limited geocode; it is never a
+facility coordinate. Image-only PDF pages use local OCR when Poppler and
+Tesseract are available.
 
 ## Working example: Google Pine Island
 
@@ -46,10 +57,10 @@ back to deterministic rules. The first live parse had also treated generic
 25 MW and 1,000 MW examples as Pine Island capacities; that defect was fixed
 with a project-context check and a regression test.
 
-## Next live acceptance case: Meta in El Paso
+## Live acceptance case: Meta in El Paso
 
 Use the [September 24, 2026 Inside Climate News article](https://insideclimatenews.org/news/24092026/el-paso-electric-only-considered-gas-to-power-meta-data-center/)
-as the seed URL with `El Paso, TX`. Cross-check it against the
+as the seed URL with `El Paso, TX` or `Texas`. Cross-check it against the
 [City of El Paso data center resource page](https://www.elpasotexas.gov/data-centers)
 and the city's linked agreements. The article describes a 1,000 MW Meta data
 center and a proposed 366 MW McCloud gas plant serving it. The city page
@@ -58,15 +69,18 @@ incentives, and jobs. Its $1.5 billion infrastructure description and the
 article's $10 billion project description need source, scope, and date context
 before they can be compared as investment claims.
 
-A live probe fetched the Inside Climate News article and selected the Meta
-project, but deterministic extraction labeled both 1,000 MW and 366 MW as
-data-center capacity. Reconciliation then reported a false capacity conflict.
-This is an open defect. The seed URL alone also did not fetch the city page:
-the current pipeline discovers additional URLs through a configured search
-provider. Brave was unavailable without a key, and the Gemini trial supplied
-no usable grounded URLs. The pipeline does not follow links from the seed
-article. The city page has been inspected as a public reference; it has not
-yet been accepted as a pipeline-collected source.
+The first live probe mislabeled the 366 MW gas plant as data-center capacity;
+that classifier defect was fixed. A later two-source run reviewed the article
+and City page, identified Meta, kept the 1,000 MW data center separate from
+the 366 MW gas plant, extracted all six Tier I–III water allocations, and kept
+the City's $1.5 billion infrastructure description separate from the
+article's $10 billion project value. The result remains `partial` because
+general search and model extraction are unavailable in the current setup.
+The article's "northeast El Paso" wording also exposed a state-only matching
+bug; `Texas` plus the URL now identifies the project. Texas without a source
+requires a working search provider and returns an explicit instruction when
+none is configured. A temporary Brave token was rejected by the provider as
+invalid and was not retained.
 
 **Acceptance checks for this case:**
 
@@ -74,9 +88,9 @@ yet been accepted as a pipeline-collected source.
    unrelated El Paso projects or general data-center facts to it.
 2. Record 1,000 MW as reported data-center capacity and 366 MW as proposed
    gas-generation capacity. Do not create a conflict between those subjects.
-3. Collect the city page as a separate, cited source through a working
-   discovery path or an explicit additional-source input. Keep inaccessible
-   pages and search failures visible.
+3. Collect the city page as a separate, cited source through the explicit
+   additional-source input; keep inaccessible pages and search failures
+   available in optional coverage details.
 4. Preserve the city's Tier I/II/III average and maximum water values with
    their phase and measure; do not collapse them into one unqualified number.
 5. Keep the $1.5 billion and $10 billion investment descriptions attributed
@@ -175,12 +189,20 @@ explained, and unknown location details are not invented.
 `location.py` parses US state, ZIP, city/state, county/state, and address/state
 without supplying coordinates or county guesses; `url_fetch.py` checks public
 URLs and redirects, bounds downloads, and reports access failures; `pdf_text.py`
-extracts text-based PDFs and reports scanned/empty PDFs; `html_text.py` removes
+extracts text-based PDFs and can OCR scanned pages with local Poppler and
+Tesseract tools; unreadable PDFs return a partial result. `html_text.py` removes
 common page chrome. `scripts/tests/test_intake.py` covers these paths offline,
 including a generated text PDF with pypdf. The fetcher rejects local and
 private addresses, but deployment still needs network egress controls against
 DNS changes after validation. No live CNBC fetch or FastAPI research route is
 part of this point.
+
+**Later ZIP integration:** `zip_lookup.py` resolves a user-supplied ZIP to
+city/state search context through Zippopotam.us. Research results retain the
+original ZIP, ZIP-area precision, and lookup provenance; the resolved city does
+not assert a facility address. Lookup failures stay partial and an explicit
+ZIP/state mismatch is rejected. Offline tests cover these paths, and a live
+lookup of `55963` returned Pine Island, MN.
 
 ### 3. Project identification
 
@@ -226,8 +248,11 @@ and source URL. `scripts/tests/test_discovery_collection.py` exercises the
 provider request shape, outage behavior, project filtering, deduplication,
 and collection failures with offline transports. The implementation uses the
 [Brave Web Search API reference](https://api-dashboard.search.brave.com/api-reference/web/search/get).
-No Brave key is available in this checkout, so live discovery remains an
-acceptance check. Search snippets are leads, not verified evidence.
+No Brave key is available in this checkout, so provider-based live discovery
+remains an acceptance check. Search snippets are leads, not verified evidence.
+A later keyless path accepts up to five explicit source URLs and considers
+relevant outgoing links from a seed article. These URLs pass the same collector
+checks; they do not provide broad web search or imply complete coverage.
 
 ### 5. Typed fact extraction
 
@@ -257,8 +282,9 @@ failure. The model adapter follows the [Gemini structured output reference](http
 No Gemini key is stored in this checkout. A temporary-key trial could not
 run the configured Gemini extraction model, so live model extraction quality
 has not been assessed. The deterministic fallback does not claim comprehensive
-environmental or tariff extraction and currently misclassifies El Paso's
-366 MW gas plant.
+environmental or tariff extraction. A later change added a distinct
+gas-generation claim and El Paso regressions for deterministic extraction,
+model-output validation, and the pipeline.
 
 ### 6. Reconciliation, estimates, and report
 
@@ -297,13 +323,16 @@ unknowns, and a summary in the app without presenting demo values as facts.
 **Implementation:** `pipeline.py` connects intake, identity, discovery,
 collection, extraction, reconciliation, estimates, and reporting. The bounded
 synchronous `POST /api/research` and `POST /api/research/pdf` routes expose all
-four input modes. `ResearchPanel.tsx` presents project candidates, reviewed
-sources, source-linked claims, conflicts, unknowns, and coverage separately
-from the simulator. The existing preview route remains available. Python
-packaging installs the research scripts for the backend. Offline pipeline and
-API tests pass, and the frontend builds. This local implementation returns a
-result after the synchronous request; job retrieval is a later scaling step.
-Live article fetching and provider quality remain point 8 checks.
+four input modes. URL, text, and PDF modes also accept additional source URLs.
+`ResearchPanel.tsx` presents project candidates, reviewed sources,
+source-linked claims, conflicts, unknowns, and optional coverage details
+separately from the simulator. The existing preview route remains available.
+Python packaging installs the research scripts for the backend. The frontend
+uses bounded in-memory research jobs with status polling; synchronous routes
+remain available. `POST /api/research/scenario` calculates a separate modeled
+scenario only from explicit IT-load and efficiency inputs. City and state
+research results are positioned on the map at approximate area centers, never
+as claimed facility coordinates. Persistent jobs remain a deployment task.
 
 ### 8. End-to-end evaluation
 
@@ -316,27 +345,29 @@ Live article fetching and provider quality remain point 8 checks.
 available, reports its research coverage and limitations, and passes the
 offline regression suite.
 
-**Offline evaluation:** `scripts/tests/test_pipeline.py` covers Pine Island,
-a synthetic Virginia project, provider outage, and inaccessible article. The
-rest of the test suite covers duplicate and unrelated sources, conflicts, and
-scanned PDFs. The latest recorded suite passed 75 Python tests and the
-frontend build. The later live CNBC run fetched the article and extracted
-four distinct power figures, but no additional source. The El Paso probe
-exposed a false capacity conflict. See `docs/RESEARCH_EVALUATION.md` for the
-run record and remaining acceptance tasks. Point 8 is not yet fully accepted.
+**Evaluation:** `scripts/tests/test_pipeline.py` covers Pine Island, a
+synthetic Virginia project, provider outage, inaccessible articles, Texas
+state-level input, and no-provider guidance. The rest of the suite covers
+duplicate and unrelated sources, capacity classification, phase-specific
+claims, conflicts, and scanned PDF OCR. The latest recorded checks passed 100
+Python tests, eight frontend tests, and a frontend build. The live CNBC run
+extracted four distinct power figures from one source. The two-source El Paso
+run extracted the scoped financial and phased water figures described above.
+Point 8 still needs broader live source-recall and provider evaluation before
+it is fully accepted; see `docs/RESEARCH_EVALUATION.md`.
 
-## Decisions before their corresponding implementation point
+## Earlier implementation decisions
 
 - Select the search provider and acceptable per-investigation cost/latency
   before point 4.
-- Decide whether the first API run is synchronous or uses a background job
-  before point 7; design the result schema for either path in point 1.
+- The API keeps synchronous routes while the frontend uses in-memory
+  background jobs; use a persistent queue before multi-worker deployment.
 - Review compatibility needs with the teammates consuming `activeSite` before
   finalizing its adapter in point 1.
 
 ## Next action
 
-Fix the El Paso gas-plant capacity classification, add a regression fixture,
-and then run the documented multi-source evaluation with a usable discovery
-provider or explicit additional-source input. Inspect source coverage and
-claim attribution before merging.
+Configure a working search subscription and evaluate automatic discovery on
+more than one project. Inspect every collected source and claim before marking
+the pipeline complete. Keep optional source-access diagnostics available
+without making them the main report content.
